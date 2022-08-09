@@ -1,6 +1,7 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use log::info;
 use mod_logger::Logger;
+use nix::unistd::getuid;
 
 mod doveadm;
 use crate::doveadm::{DoveadmFetch, FetchParams, SearchParam};
@@ -10,6 +11,11 @@ pub fn fetch(cmd_args: CmdArgs) -> Result<()> {
     Logger::set_default_level(cmd_args.log_level);
     Logger::set_color(true);
     Logger::set_brief_info(true);
+
+    if ! getuid().is_root() {
+        return Err(anyhow!("please run this command as root"));
+    }
+
 
     let mut fetch_params = FetchParams::new(cmd_args.user);
 
@@ -28,6 +34,7 @@ pub fn fetch(cmd_args: CmdArgs) -> Result<()> {
     }
     todo!()
 }
+
 
 #[cfg(test)]
 mod tests {
