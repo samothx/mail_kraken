@@ -1,6 +1,7 @@
 use crate::doveadm::params::ImapField;
 use crate::doveadm::Reader;
 use anyhow::{anyhow, Context, Result};
+use log::debug;
 use regex::Regex;
 
 mod flags_parser;
@@ -18,6 +19,7 @@ impl FetchRecord {
         parsers: &Vec<Box<dyn Parser>>,
         reader: &mut Reader,
     ) -> Result<Option<FetchRecord>> {
+        debug!("FetchRecord::parse: started");
         let mut res: Vec<FetchFieldRes> = Vec::new();
         let mut parsers = parsers.iter();
         let mut parser = parsers.next().expect("unexpected empty parser list");

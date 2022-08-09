@@ -6,6 +6,7 @@ use std::string::ToString;
 use std::time::Instant;
 use strum_macros;
 
+#[derive(Debug)]
 pub struct FetchParams {
     user: String,
     fields: Vec<ImapField>,
