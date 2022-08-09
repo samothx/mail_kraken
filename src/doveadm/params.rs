@@ -49,7 +49,7 @@ impl FetchParams {
                 fields.push_str(field.to_string().as_str());
                 fields.push(' ')
             });
-            args.push(format!("\"{}\"", fields.trim()));
+            args.push(fields.trim().to_owned());
         }
 
         if self.search.is_empty() {
