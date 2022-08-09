@@ -23,7 +23,7 @@ pub fn fetch(cmd_args: CmdArgs) -> Result<()> {
 
     info!("fetch: calling doveadm with parameters {:?}", fetch_params);
     let mut doveadm = DoveadmFetch::new(fetch_params)?;
-    while let Ok(record) = doveadm.parse_record() {
+    while let Some(record) = doveadm.parse_record()? {
         info!("fetch: Got: \n {:?}", record);
     }
     todo!()
