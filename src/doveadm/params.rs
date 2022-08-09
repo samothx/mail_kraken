@@ -33,10 +33,10 @@ impl FetchParams {
     }
 
     pub fn to_args(&self) -> Result<Vec<String>> {
-        let mut args = vec!["fetch".to_owned()];
-
-        args.push("-f".to_string());
+        let mut args = vec!["-f".to_string()];
         args.push("pager".to_string());
+
+        args.push("fetch".to_owned());
 
         args.push("-u".to_string());
         args.push(self.user.clone());
