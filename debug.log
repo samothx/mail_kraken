@@ -1,7 +1,0 @@
-[32m2022-08-09 17:23:56 INFO  fetch: calling doveadm with parameters FetchParams { user: "support@etnur.net", fields: [Hdr], search: [Mailbox("INBOX"), Seen] }
-[0m[36m2022-08-09 17:23:56 DEBUG [mail_kraken::doveadm] DoveadmFetch::new: spawning command: doveadm params: Ok(["-f", "pager", "fetch", "-u", "support@etnur.net", "\"hdr\"", "MAILBOX", "INBOX", "SEEN"])
-[0m[36m2022-08-09 17:23:56 DEBUG [mail_kraken::doveadm::parser] FetchRecord::parse: started
-[0mAvailable fetch fields: hdr.<name> body.<section> binary.<section> user mailbox mailbox-guid seq uid guid flags modseq hdr body body.preview body.snippet text text.utf8 size.physical size.virtual date.received date.sent date.saved date.received.unixtime date.sent.unixtime date.saved.unixtime imap.envelope imap.body imap.bodystructure pop3.uidl pop3.order refcount storageid
-Fatal: Unknown fetch field: "hdr"
-thread 'main' panicked at 'not yet implemented', src/lib.rs:35:5
-note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

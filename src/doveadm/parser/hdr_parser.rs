@@ -4,6 +4,7 @@ use crate::doveadm::parser::{FetchFieldRes, Parser};
 use crate::doveadm::{Reader, FORM_FEED, LINE_FEED};
 use anyhow::{anyhow, Context, Result};
 use regex::Regex;
+use log::debug;
 
 pub struct HdrParser {
     first_line_re: Regex,
@@ -12,6 +13,7 @@ pub struct HdrParser {
 impl HdrParser {
     pub fn new() -> Result<HdrParser> {
         let re_str = format!(r"^{}:$", ImapField::Hdr.to_string());
+        debug!("first_line_re: {:?}", re_str);
         let subseq_re_str = r"^([\S^:]+):\s(.*)$";
         Ok(HdrParser {
             first_line_re: Regex::new(re_str.as_str())
@@ -87,6 +89,7 @@ impl Parser for HdrParser {
                     }
                 }
             } else {
+                debug!("first line re did not match {:?}", line);
                 return Err(anyhow!(
                     "HdrParser::parse_first_field: Hdr parser failed to match first line"
                 ));
