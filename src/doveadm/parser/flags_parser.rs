@@ -3,6 +3,7 @@ use crate::doveadm::parser::{FetchFieldRes, Parser};
 use crate::doveadm::Reader;
 use anyhow::{anyhow, Context, Result};
 use regex::Regex;
+use log::debug;
 
 pub struct FlagsParser {
     first_line_re: Regex,
@@ -11,6 +12,7 @@ pub struct FlagsParser {
 impl FlagsParser {
     pub fn new() -> Result<FlagsParser> {
         let re_str = format!(r"^{}:\s+(.*)$", ImapField::Flags.to_string());
+	debug!("FlagsParser::new: first_line_re: {:?}", re_str);
         Ok(FlagsParser {
             first_line_re: Regex::new(re_str.as_str())
                 .with_context(|| format!("failed to create regex from '{}'", re_str))?,
@@ -30,8 +32,10 @@ impl Parser for FlagsParser {
     ) -> Result<Option<FetchFieldRes>> {
         // this is a one-liner, so next_re is not needed
         if let Some(line) = reader.next_line()? {
+	    let line = line.trim_end_matches('\n');
             if let Some(captures) = self.first_line_re.captures(line) {
                 if let Some(flags) = captures.get(1) {
+		    debug!("FlagsParser::parse_first_field: got payload: {:?}", flags.as_str());
                     Ok(Some(FetchFieldRes::Flags(
                         flags
                             .as_str()
@@ -43,7 +47,7 @@ impl Parser for FlagsParser {
                     Err(anyhow!("Flags parser matched but no caption")) //
                 }
             } else {
-                Err(anyhow!("no match for Flags parser"))
+                Err(anyhow!("FlagsParser::parse_first_field: no match for Flags parser on {:?}", line))
             }
         } else {
             Ok(None)
