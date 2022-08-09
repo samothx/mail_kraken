@@ -1,8 +1,6 @@
 use crate::doveadm::parser::{FetchRecord, FlagsParser, GenericParser, HdrParser, Parser};
 use anyhow::{anyhow, Context, Result};
 use log::debug;
-use regex::Regex;
-use std::fmt::{format, Display, Formatter};
 use std::io::{BufRead, BufReader, Read, Stdin};
 use std::process::{Child, ChildStdout, Command, ExitStatus, Stdio};
 use std::string::ToString;
@@ -136,6 +134,7 @@ impl<'a> Reader<'a> {
         if !self.consumed {
             Ok(Some(&self.buffer))
         } else {
+            self.buffer.clear();
             if self
                 .stream
                 .read_line(&mut self.buffer)

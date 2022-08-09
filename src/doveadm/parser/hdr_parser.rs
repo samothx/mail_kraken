@@ -1,5 +1,4 @@
 use crate::doveadm::params::ImapField;
-use crate::doveadm::parser::FetchFieldRes::Hdr;
 use crate::doveadm::parser::{FetchFieldRes, Parser};
 use crate::doveadm::{Reader, FORM_FEED, LINE_FEED};
 use anyhow::{anyhow, Context, Result};
@@ -35,6 +34,7 @@ impl Parser for HdrParser {
         next_re: Option<&Regex>,
     ) -> Result<Option<FetchFieldRes>> {
         if let Some(line) = reader.next_line()? {
+            let line = line.trim_end_matches(LINE_FEED);
             if self.first_line_re.is_match(line) {
                 // hdr: found
                 let next_field_re = if let Some(next_re) = next_re {
