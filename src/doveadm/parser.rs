@@ -49,8 +49,8 @@ impl FetchRecord {
 
 #[derive(Debug)]
 enum FieldType {
-    MultiLine(Vec<(String, String)>),
-    SingleLine(Vec<String>),
+    MultiLine(Vec<String>),
+    SingleLine(String),
 }
 
 #[derive(Debug)]

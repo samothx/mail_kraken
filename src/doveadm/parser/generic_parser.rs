@@ -3,17 +3,17 @@ use crate::doveadm::parser::{FetchFieldRes, FieldType, Parser};
 use crate::doveadm::{Reader, FORM_FEED, LINE_FEED};
 use anyhow::{anyhow, Context, Result};
 use regex::Regex;
+use log::debug;
 
 pub struct GenericParser {
     field_type: ImapField,
     first_line_re: Regex,
-    subseq_line_re: Regex,
 }
 
 impl GenericParser {
     pub fn new(field: &ImapField) -> Result<GenericParser> {
         let re_str = format!(r"^{}:(\s(.*))?$", field.to_string());
-        let subseq_re_str = r"^([\S^:]+):\s(.*)$";
+        debug!("first_line_re:  {:?}", re_str);
         Ok(GenericParser {
             field_type: field.clone(),
             first_line_re: Regex::new(re_str.as_str()).with_context(|| {
@@ -22,7 +22,6 @@ impl GenericParser {
                     re_str
                 )
             })?,
-            subseq_line_re: Regex::new(subseq_re_str)?,
         })
     }
 }
@@ -38,21 +37,20 @@ impl Parser for GenericParser {
         next_re: Option<&Regex>,
     ) -> Result<Option<FetchFieldRes>> {
         if let Some(line) = reader.next_line()? {
+            let line = line.trim_end_matches(LINE_FEED);
             if let Some(captures) = self.first_line_re.captures(line) {
-                if captures.len() > 1 {
+                if captures.len() > 2 {
                     // single line field
                     Ok(Some(FetchFieldRes::Generic((
                         self.field_type.clone(),
                         FieldType::SingleLine(
                             captures
-                                .get(1)
+                                .get(2)
                                 .expect(
                                     "GenericParser::parse_first_field: unexpected empty capture",
                                 )
                                 .as_str()
-                                .split_whitespace()
-                                .map(|part| part.to_owned())
-                                .collect(),
+                                .to_owned()
                         ),
                     ))))
                 } else {
@@ -62,7 +60,7 @@ impl Parser for GenericParser {
                     } else {
                         &self.first_line_re
                     };
-                    let mut res: Vec<(String, String)> = Vec::new();
+                    let mut res: Vec<String> = Vec::new();
                     while let Some(line) = reader.next_line()? {
                         let line = line.trim_end_matches(LINE_FEED);
                         if line.ends_with(FORM_FEED) || next_field_re.is_match(line) {
@@ -78,36 +76,7 @@ impl Parser for GenericParser {
                                 ));
                             }
                         } else {
-                            if let Some(captures) = self.subseq_line_re.captures(line) {
-                                res.push((
-                                    captures
-                                        .get(1)
-                                        .expect(
-                                            format!("GenericParser::parse_first_field: unexpected empty Hdr name in line '{}'", line)
-                                                .as_str(),
-                                        )
-                                        .as_str()
-                                        .to_owned(),
-                                    captures
-                                        .get(2)
-                                        .expect(
-                                            format!("GenericParser::parse_first_field: unexpected empty Hdr value in line '{}'", line)
-                                                .as_str(),
-                                        )
-                                        .as_str()
-                                        .to_owned(),
-                                ));
-                            } else {
-                                if let Some(last_res) = res.last_mut() {
-                                    last_res.1.push('\n');
-                                    last_res.1.push_str(line);
-                                } else {
-                                    return Err(anyhow!(
-                                    "GenericParser::parse_first_field: hdr regex failed to match in line '{}'",
-                                    line
-                                ));
-                                }
-                            }
+                                res.push(line.to_owned());
                         }
                     }
                     // no next line

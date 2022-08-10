@@ -13,7 +13,7 @@ pub struct HdrParser {
 impl HdrParser {
     pub fn new() -> Result<HdrParser> {
         let re_str = format!(r"^{}:$", ImapField::Hdr.to_string());
-        let subseq_re_str = r"^(([\S^:]+):\s(.*)|(.*)$";
+        let subseq_re_str = r"^(([\S^:]+):\s(.*)|(.*))$";
         debug!("first_line_re:  {:?}", re_str);
         debug!("subseq_line_re: {:?}", subseq_re_str);
         Ok(HdrParser {
@@ -53,7 +53,7 @@ impl Parser for HdrParser {
                         if res.len() > 0 {
                             return Ok(Some(FetchFieldRes::Hdr(res)));
                         } else {
-                            // TODO: or accept an empty field res ?
+                            // TODO: or accept an empty hdr field res ?
                             return Err(anyhow!(
                                 "HdrParser::parse_first_field: unexpected empty field"
                             ));

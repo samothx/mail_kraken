@@ -16,6 +16,8 @@ pub fn fetch(cmd_args: CmdArgs) -> Result<()> {
         return Err(anyhow!("please run this command as root"));
     }
 
+    // TODO: set userid to nobody
+    //
 
     let mut fetch_params = FetchParams::new(cmd_args.user);
 

@@ -28,7 +28,7 @@ impl Parser for FlagsParser {
     fn parse_first_field(
         &self,
         reader: &mut Reader,
-        _next_re: Option<&Regex>,
+        next_re: Option<&Regex>,
     ) -> Result<Option<FetchFieldRes>> {
         // this is a one-liner, so next_re is not needed
         if let Some(line) = reader.next_line()? {
@@ -47,6 +47,16 @@ impl Parser for FlagsParser {
                     Err(anyhow!("Flags parser matched but no caption")) //
                 }
             } else {
+               let next_field_re = if let Some(next_re) = next_re {
+                        next_re
+                    } else {
+                        &self.first_line_re
+                    };
+                if line.ends_with(FORM_FEED) {
+                    return Ok(None)
+                }|| next_field_re.is_match(line) {
+                    reader.unconsume();
+
                 Err(anyhow!("FlagsParser::parse_first_field: no match for Flags parser on {:?}", line))
             }
         } else {

@@ -34,6 +34,7 @@ impl DoveadmFetch {
             DOVEADM_CMD,
             params.to_args()
         );
+        // TODO: set userid to root for this
         let mut child = Command::new(DOVEADM_CMD)
             .args(params.to_args()?)
             .stdin(Stdio::null())
@@ -41,7 +42,7 @@ impl DoveadmFetch {
             .stderr(Stdio::inherit()) // TODO: do something with this ?
             .spawn()
             .with_context(|| "failed to spawn doveadm fetch command".to_owned())?;
-
+        // TODO: set userid back to nobody
         let stdout = match child.stdout.take() {
             Some(stdout) => BufReader::new(Box::new(stdout) as Box<dyn Read>),
             None => {
