@@ -1,16 +1,20 @@
-use std::collections::HashMap;
 use crate::doveadm::params::ImapField;
 use crate::doveadm::Reader;
 use anyhow::{anyhow, Result};
 use log::debug;
 use regex::Regex;
+use std::collections::HashMap;
 
-mod flags_parser;
-pub use flags_parser::FlagsParser;
+mod single_line_parser;
+pub use single_line_parser::SingleLineParser;
 mod generic_parser;
 pub use generic_parser::GenericParser;
 mod hdr_parser;
 pub use hdr_parser::HdrParser;
+
+const LINE_FEED: char = 0xAu8 as char;
+const FORM_FEED: char = 0xCu8 as char;
+const EIR: &str = "\u{C}\u{A}";
 
 #[derive(Debug)]
 pub struct FetchRecord(Vec<FetchFieldRes>);
@@ -21,29 +25,38 @@ impl FetchRecord {
         reader: &mut Reader,
     ) -> Result<Option<FetchRecord>> {
         debug!("FetchRecord::parse: started");
-        let mut res: Vec<FetchFieldRes> = Vec::new();
-        let mut parsers = parsers.iter();
-        let parser = parsers.next().expect("unexpected empty parser list");
-        let mut next_parser = parsers.next();
 
-        if let Some(curr_res) = parser
-            .parse_first_field(reader, next_parser.map(|parser| parser.get_first_line_re()))?
-        {
-            res.push(curr_res);
+        if let Some(line) = reader.next_line()? {
+            if !line.ends_with(EIR) {
+                reader.unconsume();
+            }
+
+            let mut res: Vec<FetchFieldRes> = Vec::new();
+            let mut parsers = parsers.iter();
+            let parser = parsers.next().expect("unexpected empty parser list");
+            let mut next_parser = parsers.next();
+
+            if let Some(curr_res) = parser
+                .parse_first_field(reader, next_parser.map(|parser| parser.get_first_line_re()))?
+            {
+                res.push(curr_res);
+            } else {
+                // EOI on first field
+                return Ok(None);
+            }
+
+            while let Some(parser) = next_parser {
+                next_parser = parsers.next();
+                res.push(parser.parse_subseq_field(
+                    reader,
+                    next_parser.map(|parser| parser.get_first_line_re()),
+                )?);
+            }
+
+            Ok(Some(FetchRecord(res)))
         } else {
-            // EOI on first field
-            return Ok(None);
+            Ok(None)
         }
-
-        while let Some(parser) = next_parser {
-            next_parser = parsers.next();
-            res.push(parser.parse_subseq_field(
-                reader,
-                next_parser.map(|parser| parser.get_first_line_re()),
-            )?);
-        }
-
-        Ok(Some(FetchRecord(res)))
     }
 }
 
@@ -54,9 +67,15 @@ enum FieldType {
 }
 
 #[derive(Debug)]
+pub enum SingleLineType {
+    StringType(String),
+    ListType(Vec<String>),
+}
+
+#[derive(Debug)]
 pub enum FetchFieldRes {
-    Flags(Vec<String>),
-    Hdr(HashMap<String,String>),
+    SingLine((ImapField, SingleLineType)),
+    Hdr(HashMap<String, String>),
     Generic((ImapField, FieldType)),
 }
 

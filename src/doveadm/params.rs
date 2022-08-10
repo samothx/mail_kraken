@@ -74,6 +74,12 @@ trait ToParams {
     fn to_params(&self) -> Vec<String>;
 }
 
+
+// Available fetch fields: hdr.<name> body.<section> binary.<section> user mailbox mailbox-guid seq
+// uid guid flags modseq hdr body body.preview body.snippet text text.utf8 size.physical size.virtual
+// date.received date.sent date.saved date.received.unixtime date.sent.unixtime date.saved.unixtime
+// imap.envelope imap.body imap.bodystructure pop3.uidl pop3.order refcount storageid
+
 #[derive(Clone, Debug, strum_macros::Display)]
 pub enum ImapField {
     #[strum(serialize = "hdr")]

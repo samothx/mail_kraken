@@ -1,4 +1,4 @@
-use crate::doveadm::parser::{FetchRecord, FlagsParser, GenericParser, HdrParser, Parser};
+use crate::doveadm::parser::{FetchRecord, GenericParser, HdrParser, Parser, SingleLineParser};
 use anyhow::{anyhow, Context, Result};
 use log::debug;
 use std::io::{BufRead, BufReader, Read};
@@ -6,9 +6,6 @@ use std::process::{Child, Command, ExitStatus, Stdio};
 
 const MB_SIZE: usize = 1024 * 1024;
 const DOVEADM_CMD: &str = "doveadm";
-
-const LINE_FEED: char = 0xAu8 as char;
-const FORM_FEED: char = 0xCu8 as char;
 
 mod cmd_args;
 pub use cmd_args::CmdArgs;
@@ -55,7 +52,12 @@ impl DoveadmFetch {
         let mut parsers: Vec<Box<dyn Parser>> = Vec::new();
         for field in params.fields() {
             parsers.push(match field {
-                ImapField::Flags => Box::new(FlagsParser::new()?) as Box<dyn Parser>,
+                ImapField::Flags => {
+                    Box::new(SingleLineParser::new(field, true)?) as Box<dyn Parser>
+                }
+                ImapField::DateReceived | ImapField::DateSaved | ImapField::DateSent => {
+                    Box::new(SingleLineParser::new(field, true)?) as Box<dyn Parser>
+                }
                 ImapField::Hdr => Box::new(HdrParser::new()?) as Box<dyn Parser>,
                 _ => Box::new(GenericParser::new(field)?) as Box<dyn Parser>,
             });
@@ -131,6 +133,7 @@ impl<'a> Reader<'a> {
 
     fn next_line(&mut self) -> Result<Option<&str>> {
         if !self.consumed {
+            self.consumed = true;
             Ok(Some(&self.buffer))
         } else {
             self.buffer.clear();

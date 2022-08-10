@@ -1,9 +1,10 @@
 use crate::doveadm::params::ImapField;
-use crate::doveadm::parser::{FetchFieldRes, FieldType, Parser};
-use crate::doveadm::{Reader, FORM_FEED, LINE_FEED};
+use crate::doveadm::parser::FieldType::MultiLine;
+use crate::doveadm::parser::{FetchFieldRes, FieldType, Parser, FORM_FEED, LINE_FEED};
+use crate::doveadm::Reader;
 use anyhow::{anyhow, Context, Result};
-use regex::Regex;
 use log::debug;
+use regex::Regex;
 
 pub struct GenericParser {
     field_type: ImapField,
@@ -50,7 +51,7 @@ impl Parser for GenericParser {
                                     "GenericParser::parse_first_field: unexpected empty capture",
                                 )
                                 .as_str()
-                                .to_owned()
+                                .to_owned(),
                         ),
                     ))))
                 } else {
@@ -63,20 +64,20 @@ impl Parser for GenericParser {
                     let mut res: Vec<String> = Vec::new();
                     while let Some(line) = reader.next_line()? {
                         let line = line.trim_end_matches(LINE_FEED);
-                        if line.ends_with(FORM_FEED) || next_field_re.is_match(line) {
+                        if line.ends_with(FORM_FEED) {
+                            return Ok(Some(FetchFieldRes::Generic((
+                                self.field_type.clone(),
+                                MultiLine(res),
+                            ))));
+                        }
+                        if next_field_re.is_match(line) {
                             reader.unconsume();
-                            if res.len() > 0 {
-                                return Ok(Some(FetchFieldRes::Generic((
-                                    self.field_type.clone(),
-                                    FieldType::MultiLine(res),
-                                ))));
-                            } else {
-                                return Err(anyhow!(
-                                    "GenericParser::parse_first_field: unexpected empty field"
-                                ));
-                            }
+                            return Ok(Some(FetchFieldRes::Generic((
+                                self.field_type.clone(),
+                                FieldType::MultiLine(res),
+                            ))));
                         } else {
-                                res.push(line.to_owned());
+                            res.push(line.to_owned());
                         }
                     }
                     // no next line
