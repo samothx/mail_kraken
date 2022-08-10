@@ -1,10 +1,8 @@
 use crate::doveadm::parser::{FetchRecord, FlagsParser, GenericParser, HdrParser, Parser};
 use anyhow::{anyhow, Context, Result};
 use log::debug;
-use std::io::{BufRead, BufReader, Read, Stdin};
-use std::process::{Child, ChildStdout, Command, ExitStatus, Stdio};
-use std::string::ToString;
-use strum_macros;
+use std::io::{BufRead, BufReader, Read};
+use std::process::{Child, Command, ExitStatus, Stdio};
 
 const MB_SIZE: usize = 1024 * 1024;
 const DOVEADM_CMD: &str = "doveadm";
@@ -44,7 +42,7 @@ impl DoveadmFetch {
             .spawn()
             .with_context(|| "failed to spawn doveadm fetch command".to_owned())?;
 
-        let mut stdout = match child.stdout.take() {
+        let stdout = match child.stdout.take() {
             Some(stdout) => BufReader::new(Box::new(stdout) as Box<dyn Read>),
             None => {
                 return Err(anyhow!(

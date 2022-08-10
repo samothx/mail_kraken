@@ -1,9 +1,7 @@
 use anyhow::{anyhow, Error, Result};
 use chrono::NaiveDate;
-use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 use std::string::ToString;
-use std::time::Instant;
 use strum_macros;
 
 #[derive(Debug)]
@@ -126,6 +124,7 @@ impl FromStr for ImapField {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, strum_macros::Display)]
 pub enum SearchParam {
     SequenceSet(SeqSet),

@@ -1,6 +1,7 @@
+use std::collections::HashMap;
 use crate::doveadm::params::ImapField;
 use crate::doveadm::Reader;
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use log::debug;
 use regex::Regex;
 
@@ -22,7 +23,7 @@ impl FetchRecord {
         debug!("FetchRecord::parse: started");
         let mut res: Vec<FetchFieldRes> = Vec::new();
         let mut parsers = parsers.iter();
-        let mut parser = parsers.next().expect("unexpected empty parser list");
+        let parser = parsers.next().expect("unexpected empty parser list");
         let mut next_parser = parsers.next();
 
         if let Some(curr_res) = parser
@@ -55,7 +56,7 @@ enum FieldType {
 #[derive(Debug)]
 pub enum FetchFieldRes {
     Flags(Vec<String>),
-    Hdr(Vec<(String, String)>),
+    Hdr(HashMap<String,String>),
     Generic((ImapField, FieldType)),
 }
 
