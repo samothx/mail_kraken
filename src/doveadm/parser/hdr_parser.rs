@@ -2,8 +2,9 @@ use crate::doveadm::params::ImapField;
 use crate::doveadm::parser::{FetchFieldRes, Parser};
 use crate::doveadm::{Reader, FORM_FEED, LINE_FEED};
 use anyhow::{anyhow, Context, Result};
+use log::{debug, warn};
 use regex::Regex;
-use log::debug;
+use std::collections::HashMap;
 
 pub struct HdrParser {
     first_line_re: Regex,
@@ -12,8 +13,9 @@ pub struct HdrParser {
 impl HdrParser {
     pub fn new() -> Result<HdrParser> {
         let re_str = format!(r"^{}:$", ImapField::Hdr.to_string());
-        debug!("first_line_re: {:?}", re_str);
-        let subseq_re_str = r"^([\S^:]+):\s(.*)$";
+        let subseq_re_str = r"^(([\S^:]+):\s(.*)|(.*)$";
+        debug!("first_line_re:  {:?}", re_str);
+        debug!("subseq_line_re: {:?}", subseq_re_str);
         Ok(HdrParser {
             first_line_re: Regex::new(re_str.as_str())
                 .with_context(|| format!("failed to create regex from '{}'", re_str))?,
@@ -42,7 +44,8 @@ impl Parser for HdrParser {
                 } else {
                     &self.first_line_re
                 };
-                let mut res: Vec<(String, String)> = Vec::new();
+                let mut res: HashMap<String, String> = HashMap::new();
+                let mut last_key: Option<String> = None;
                 while let Some(line) = reader.next_line()? {
                     let line = line.trim_end_matches(LINE_FEED);
                     if line.ends_with(FORM_FEED) || next_field_re.is_match(line) {
@@ -57,34 +60,45 @@ impl Parser for HdrParser {
                         }
                     } else {
                         if let Some(captures) = self.subseq_line_re.captures(line) {
-                            res.push((
-                                captures
-                                    .get(1)
+                            if let Some(no_tag) = captures.get(4) {
+                                let add_val = no_tag.as_str();
+                                if !add_val.is_empty() {
+                                    if let Some(key) = last_key.as_ref() {
+                                        let value = res.get_mut(key).expect("unexpected key not found");
+                                        value.push('\n');
+                                        value.push_str(add_val);
+                                    } else {
+                                        warn!("no recent key found fo tagless value");
+                                    }
+                                }
+                            } else {
+                                let key = captures
+                                    .get(2)
                                     .expect(
                                         format!("HdrParser::parse_first_field: unexpected empty Hdr name in line '{}'", line)
                                             .as_str(),
                                     )
                                     .as_str()
-                                    .to_owned(),
-                                captures
-                                    .get(2)
-                                    .expect(
-                                        format!("HdrParser::parse_first_field: unexpected empty Hdr value in line '{}'", line)
-                                            .as_str(),
-                                    )
-                                    .as_str()
-                                    .to_owned(),
-                            ));
+                                    .to_owned();
+
+                                res.insert(
+                                    key.clone(),
+                                    captures
+                                        .get(3)
+                                        .expect(
+                                            format!("HdrParser::parse_first_field: unexpected empty Hdr value in line '{}'", line)
+                                                .as_str(),
+                                        )
+                                        .as_str()
+                                        .to_owned(),
+                                ).map_or((), |_| warn!("duplicate key found: '{}'", key));
+                                last_key = Some(key);
+                            }
                         } else {
-                            if let Some(last_res) = res.last_mut() {
-                                last_res.1.push('\n');
-                                last_res.1.push_str(line);
-                            } else {
-                                return Err(anyhow!(
-                                    "HdrParser::parse_first_field: hdr regex failed to match in line '{}'",
+                            return Err(anyhow!(
+                                    "hdr regex failed to match in line '{}'",
                                     line
                                 ));
-                            }
                         }
                     }
                 }
