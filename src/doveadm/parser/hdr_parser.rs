@@ -45,16 +45,12 @@ impl Parser for HdrParser {
                     if let Some(captures) = self.subseq_line_re.captures(line) {
                         if let Some(no_tag) = captures.get(4) {
                             let add_val = no_tag.as_str();
-                            if !add_val.is_empty() {
-                                if let Some(key) = last_key.as_ref() {
-                                    let value = res.get_mut(key).expect("unexpected key not found");
-                                    value.push('\n');
-                                    value.push_str(add_val);
-                                } else {
-                                    warn!("no recent key found fo tagless value");
-                                }
+                            if let Some(key) = last_key.as_ref() {
+                                let value = res.get_mut(key).expect("unexpected key not found");
+                                value.push('\n');
+                                value.push_str(add_val);
                             } else {
-                                return Ok(Some(FetchFieldRes::Hdr(res)));
+                                warn!("no recent key found fo tagless value");
                             }
                         } else {
                             let key = captures
@@ -80,7 +76,11 @@ impl Parser for HdrParser {
                             last_key = Some(key);
                         }
                     } else {
-                        return Err(anyhow!("hdr regex failed to match in line '{}'", line));
+                        if line.is_empty() {
+                            return Ok(Some(FetchFieldRes::Hdr(res)));
+                        } else {
+                            return Err(anyhow!("hdr regex failed to match in line '{}'", line));
+                        }
                     }
                 }
             } else {
