@@ -7,8 +7,7 @@ use std::process::{Child, Command, ExitStatus, Stdio};
 const MB_SIZE: usize = 1024 * 1024;
 const DOVEADM_CMD: &str = "doveadm";
 
-mod cmd_args;
-pub use cmd_args::CmdArgs;
+// pub use cmd_args::{CmdArgs, ServeCmd, Command};
 
 mod params;
 pub use params::{FetchParams, ImapField, SearchParam};
@@ -139,7 +138,7 @@ impl<'a> Reader<'a> {
             self.buffer.clear();
             if self
                 .stream
-                .read_line(&mut self.buffer)
+                .read_line(self.buffer)
                 .with_context(|| "failed to read line from doveadm fetch stdout".to_owned())?
                 == 0
             {

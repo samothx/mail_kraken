@@ -2,7 +2,6 @@ use anyhow::{anyhow, Error, Result};
 use chrono::NaiveDate;
 use std::str::FromStr;
 use std::string::ToString;
-use strum_macros;
 
 #[derive(Debug)]
 pub struct FetchParams {
@@ -74,7 +73,6 @@ trait ToParams {
     fn to_params(&self) -> Vec<String>;
 }
 
-
 // Available fetch fields: hdr.<name> body.<section> binary.<section> user mailbox mailbox-guid seq
 // uid guid flags modseq hdr body body.preview body.snippet text text.utf8 size.physical size.virtual
 // date.received date.sent date.saved date.received.unixtime date.sent.unixtime date.saved.unixtime
@@ -118,7 +116,7 @@ impl FromStr for ImapField {
             "body" => Ok(ImapField::Body),
             "date.received" | "datereceived" => Ok(ImapField::DateReceived),
             "date.saved" | "datesaved" => Ok(ImapField::DateSaved),
-            "date.sent" |"datesent" => Ok(ImapField::DateSent),
+            "date.sent" | "datesent" => Ok(ImapField::DateSent),
             "guid" => Ok(ImapField::Guid),
             "imap.body" => Ok(ImapField::ImapBody),
             "imap.bodystructure" | "bodystructure" => Ok(ImapField::ImapBodystructure),

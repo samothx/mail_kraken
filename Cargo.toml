@@ -15,6 +15,10 @@ chrono = "0.4"
 regex = "1.6"
 nix = "0.24"
 
+[dependencies.tokio]
+version = "1"
+features = ["full"]
+
 [dependencies.structopt]
 version = "0.3.14"
 features = ["paw"]

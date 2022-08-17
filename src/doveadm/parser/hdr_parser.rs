@@ -6,6 +6,10 @@ use log::{debug, warn};
 use regex::Regex;
 use std::collections::HashMap;
 
+// TODO: must support duplicate keys - go back to Vec instead of hashmap or
+// supply individual header fields allowing for 'Received' and 'DKIM-Signature'
+// to support multiple  occurrences
+
 pub struct HdrParser {
     first_line_re: Regex,
     subseq_line_re: Regex,
@@ -75,12 +79,10 @@ impl Parser for HdrParser {
                                 ).map_or((), |_| warn!("duplicate key found: '{}'", key));
                             last_key = Some(key);
                         }
+                    } else if line.is_empty() {
+                        return Ok(Some(FetchFieldRes::Hdr(res)));
                     } else {
-                        if line.is_empty() {
-                            return Ok(Some(FetchFieldRes::Hdr(res)));
-                        } else {
-                            return Err(anyhow!("hdr regex failed to match in line '{}'", line));
-                        }
+                        return Err(anyhow!("hdr regex failed to match in line '{}'", line));
                     }
                 }
             } else {

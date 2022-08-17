@@ -1,20 +1,74 @@
 use anyhow::{anyhow, Result};
-use log::info;
+use log::{debug, info};
 use mod_logger::Logger;
+use nix::errno::errno;
+use nix::libc::{setgid, setuid};
 use nix::unistd::getuid;
 
-mod doveadm;
-use crate::doveadm::{DoveadmFetch, FetchParams, SearchParam};
-pub use doveadm::CmdArgs;
+mod cmd_args;
+mod libc_util;
+use crate::cmd_args::{Command, ServeCmd};
+pub use cmd_args::CmdArgs;
 
-pub fn fetch(cmd_args: CmdArgs) -> Result<()> {
+mod doveadm;
+
+use crate::libc_util::{strerror, UserInfo};
+
+const SWITCH2USER: &str = "nobody"; // "mail_kraken";
+
+pub async fn run(cmd_args: CmdArgs) -> Result<()> {
+    // TODO: probably should not do this as su
     Logger::set_default_level(cmd_args.log_level);
     Logger::set_color(true);
     Logger::set_brief_info(true);
 
-    if ! getuid().is_root() {
+    info!("initializing");
+    if !getuid().is_root() {
         return Err(anyhow!("please run this command as root"));
     }
+
+    {
+        debug!("switching uid/gid to {}", SWITCH2USER);
+        let user_info = UserInfo::from_name(SWITCH2USER)?;
+        match unsafe { setuid(user_info.get_uid()) } {
+            0 => debug!("setuid OK"),
+            _ => {
+                return Err(anyhow!(
+                    "failed to setuid to {} {}: {:?}",
+                    SWITCH2USER,
+                    user_info.get_uid(),
+                    strerror(errno())
+                ))
+            }
+        }
+
+        match unsafe { setgid(user_info.get_gid()) } {
+            0 => debug!("setgid OK"),
+            _ => {
+                return Err(anyhow!(
+                    "failed to setgid to {}: {:?}",
+                    user_info.get_gid(),
+                    strerror(errno())
+                ))
+            }
+        }
+    };
+
+    match cmd_args.cmd {
+        Command::Serve(args) => serve(args).await,
+    }
+}
+
+async fn serve(_args: ServeCmd) -> Result<()> {
+    todo!()
+}
+
+/*
+fn fetch() -> Result<()> {
+    Logger::set_default_level(cmd_args.log_level);
+    Logger::set_color(true);
+    Logger::set_brief_info(true);
+
 
     // TODO: set userid to nobody
     //
@@ -36,7 +90,7 @@ pub fn fetch(cmd_args: CmdArgs) -> Result<()> {
     }
     todo!()
 }
-
+*/
 
 #[cfg(test)]
 mod tests {
