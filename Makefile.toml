@@ -1,0 +1,40 @@
+[tasks.mkdirs]
+description = "Create neccessary directories"
+command = "mkdir"
+args = ["-p", "dist", "build/css", "build/template", "build/html"]
+
+
+
+[tasks.format]
+install_crate = "rustfmt"
+command = "cargo"
+args = ["fmt", "--", "--emit=files"]
+
+##### CLEAN
+
+[tasks.clean_dirs]
+description = "Remove build & dist directories"
+command = "rm"
+args = ["-rfd", "--one-file-system", "dist", "build"]
+
+[tasks.clean]
+command = "cargo"
+args = ["clean"]
+dependencies = ["clean_dirs"]
+
+[tasks.build]
+command = "cargo"
+args = ["build"]
+dependencies = ["mkdirs"]
+
+[tasks.test]
+command = "cargo"
+args = ["test"]
+dependencies = ["clean"]
+
+[tasks.my-flow]
+dependencies = [
+    "format",
+    "build",
+    "test"
+]

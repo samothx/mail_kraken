@@ -19,6 +19,8 @@ pub struct CmdArgs {
 #[derive(Debug, StructOpt)]
 pub enum Command {
     Serve(ServeCmd),
+    // TODO: Install - install program, create user & group, copy templates & html-files,
+    // optionally create local database - or cargo make install
 }
 
 #[derive(Debug, StructOpt)]
@@ -26,11 +28,11 @@ pub struct ServeCmd {
     #[structopt(
         short,
         long,
-        value_name = "ADDR",
-        help = "Address to serve content on",
-        default_value = "127.0.0.1"
+        value_name = "BIND_TO",
+        help = "Address / port to serve content on",
+        default_value = "127.0.0.1:8080"
     )]
-    pub addr: String,
+    pub bind_to: String,
     #[structopt(
         short,
         long,

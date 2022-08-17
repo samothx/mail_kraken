@@ -2,16 +2,17 @@ use anyhow::{anyhow, Result};
 use log::{debug, info};
 use mod_logger::Logger;
 use nix::errno::errno;
-use nix::libc::{gid_t, setegid, seteuid, setresgid, setresuid, uid_t};
+use nix::libc::{setresgid, setresuid};
 use nix::unistd::getuid;
 
 mod cmd_args;
-mod libc_util;
-use crate::cmd_args::{Command, ServeCmd};
-pub use cmd_args::CmdArgs;
-
 mod doveadm;
+mod httpd;
+pub use cmd_args::CmdArgs;
+mod libc_util;
 
+use crate::cmd_args::{Command, ServeCmd};
+use crate::httpd::serve;
 use crate::libc_util::{strerror, UserInfo};
 
 const SWITCH2USER: &str = "nobody"; // "mail_kraken";
@@ -22,7 +23,8 @@ pub async fn run(cmd_args: CmdArgs) -> Result<()> {
     Logger::set_color(true);
     Logger::set_brief_info(true);
 
-    info!("initializing");
+    info!("initializing - cmd: {:?}", cmd_args.cmd);
+
     if !getuid().is_root() {
         return Err(anyhow!("please run this command as root"));
     }
@@ -55,6 +57,7 @@ pub async fn run(cmd_args: CmdArgs) -> Result<()> {
             }
         }
 
+        /* Test
         match unsafe { setresuid(0xFFFFFFFF, 0, 0) } {
             0 => debug!("setresuid 0 success"),
             _ => {
@@ -64,15 +67,12 @@ pub async fn run(cmd_args: CmdArgs) -> Result<()> {
                 ))
             }
         }
+        */
     };
 
     match cmd_args.cmd {
         Command::Serve(args) => serve(args).await,
     }
-}
-
-async fn serve(_args: ServeCmd) -> Result<()> {
-    todo!()
 }
 
 /*

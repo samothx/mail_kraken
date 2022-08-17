@@ -19,6 +19,9 @@ nix = "0.24"
 version = "1"
 features = ["full"]
 
+[dependencies.axum]
+version = "0.5.15"
+
 [dependencies.structopt]
 version = "0.3.14"
 features = ["paw"]
