@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use log::{debug, info};
 use mod_logger::Logger;
 use nix::errno::errno;
-use nix::libc::{setegid, seteuid};
+use nix::libc::{gid_t, setegid, seteuid, setresgid, setresuid, uid_t};
 use nix::unistd::getuid;
 
 mod cmd_args;
@@ -31,31 +31,39 @@ pub async fn run(cmd_args: CmdArgs) -> Result<()> {
         debug!("switching uid/gid to {}", SWITCH2USER);
 
         let user_info = UserInfo::from_name(SWITCH2USER)?;
-        
-        match unsafe { setegid(user_info.get_gid()) } {
-            0 => debug!("setegid OK"),
+
+        match unsafe { setresgid(0xFFFFFFFF, user_info.get_gid(), 0) } {
+            0 => debug!("setresgid success"),
             _ => {
                 return Err(anyhow!(
                     "failed to setegid to {}: {:?}",
                     user_info.get_gid(),
-                    strerror(errno()).unwrap_or("unknown".to_owned())
+                    strerror(errno()).unwrap_or_else(|| "unknown".to_owned())
                 ))
             }
         }
-        
-        match unsafe { seteuid(user_info.get_uid()) } {
-            0 => debug!("seteuid OK"),
+
+        match unsafe { setresuid(0xFFFFFFFF, user_info.get_uid(), 0) } {
+            0 => debug!("setresuid success"),
             _ => {
                 return Err(anyhow!(
                     "failed to seteuid to {} {}: {:?}",
                     SWITCH2USER,
                     user_info.get_uid(),
-                    strerror(errno()).unwrap_or("unknown".to_owned())
+                    strerror(errno()).unwrap_or_else(|| "unknown".to_owned())
                 ))
             }
         }
 
-
+        match unsafe { setresuid(0xFFFFFFFF, 0, 0) } {
+            0 => debug!("setresuid 0 success"),
+            _ => {
+                return Err(anyhow!(
+                    "failed to setresuid to root 0: {:?}",
+                    strerror(errno()).unwrap_or_else(|| "unknown".to_owned())
+                ))
+            }
+        }
     };
 
     match cmd_args.cmd {

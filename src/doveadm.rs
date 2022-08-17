@@ -133,7 +133,7 @@ impl<'a> Reader<'a> {
     fn next_line(&mut self) -> Result<Option<&str>> {
         if !self.consumed {
             self.consumed = true;
-            Ok(Some(&self.buffer))
+            Ok(Some(self.buffer))
         } else {
             self.buffer.clear();
             if self
