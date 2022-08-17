@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use log::{debug, info};
 use mod_logger::Logger;
 use nix::errno::errno;
-use nix::libc::{setgid, setuid};
+use nix::libc::{setegid, seteuid};
 use nix::unistd::getuid;
 
 mod cmd_args;
@@ -29,29 +29,33 @@ pub async fn run(cmd_args: CmdArgs) -> Result<()> {
 
     {
         debug!("switching uid/gid to {}", SWITCH2USER);
+
         let user_info = UserInfo::from_name(SWITCH2USER)?;
-        match unsafe { setuid(user_info.get_uid()) } {
-            0 => debug!("setuid OK"),
+        
+        match unsafe { setegid(user_info.get_gid()) } {
+            0 => debug!("setegid OK"),
             _ => {
                 return Err(anyhow!(
-                    "failed to setuid to {} {}: {:?}",
+                    "failed to setegid to {}: {:?}",
+                    user_info.get_gid(),
+                    strerror(errno()).unwrap_or("unknown".to_owned())
+                ))
+            }
+        }
+        
+        match unsafe { seteuid(user_info.get_uid()) } {
+            0 => debug!("seteuid OK"),
+            _ => {
+                return Err(anyhow!(
+                    "failed to seteuid to {} {}: {:?}",
                     SWITCH2USER,
                     user_info.get_uid(),
-                    strerror(errno())
+                    strerror(errno()).unwrap_or("unknown".to_owned())
                 ))
             }
         }
 
-        match unsafe { setgid(user_info.get_gid()) } {
-            0 => debug!("setgid OK"),
-            _ => {
-                return Err(anyhow!(
-                    "failed to setgid to {}: {:?}",
-                    user_info.get_gid(),
-                    strerror(errno())
-                ))
-            }
-        }
+
     };
 
     match cmd_args.cmd {
