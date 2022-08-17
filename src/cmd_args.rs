@@ -41,12 +41,4 @@ pub struct ServeCmd {
         default_value = "5ecr3t"
     )]
     pub init_passwd: String,
-    #[structopt(
-        short,
-        long,
-        value_name = "PORT",
-        help = "Port to listen on",
-        default_value = "8080"
-    )]
-    pub port: u16,
 }

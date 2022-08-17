@@ -1,9 +1,5 @@
-[tasks.mkdirs]
-description = "Create neccessary directories"
-command = "mkdir"
-args = ["-p", "dist", "build/css", "build/template", "build/html"]
 
-
+##### FMT
 
 [tasks.format]
 install_crate = "rustfmt"
@@ -15,26 +11,50 @@ args = ["fmt", "--", "--emit=files"]
 [tasks.clean_dirs]
 description = "Remove build & dist directories"
 command = "rm"
-args = ["-rfd", "--one-file-system", "dist", "build"]
+args = ["-rfd", "--one-file-system", "dist"]
 
 [tasks.clean]
 command = "cargo"
 args = ["clean"]
 dependencies = ["clean_dirs"]
 
+##### BUILD
+
+[tasks.mkdirs]
+description = "Create neccessary directories"
+command = "mkdir"
+args = ["-p", "dist", "dist/css", "dist/template", "dist/html", "dist/sql", "dist/cfg"]
+
 [tasks.build]
 command = "cargo"
 args = ["build"]
 dependencies = ["mkdirs"]
+
+[tasks.build_release]
+command = "cargo"
+args = ["build", "-r"]
+dependencies = ["mkdirs"]
+
+##### TEST
 
 [tasks.test]
 command = "cargo"
 args = ["test"]
 dependencies = ["clean"]
 
-[tasks.my-flow]
-dependencies = [
-    "format",
-    "build",
-    "test"
-]
+# ---- LINT ----
+
+[tasks.clippy]
+description = "Lint with Clippy"
+install_crate = { rustup_component_name = "clippy", binary = "cargo-clippy", test_arg = "--help" }
+command = "cargo"
+args = ["clippy", "--no-default-features", "--", "--deny", "warnings", "--deny", "clippy::pedantic", "--deny", "clippy::nursery"]
+
+# ---- INSTALL ----
+
+[tasks.install]
+description = "Install mail_kraken"
+script= '''
+#!/bin/env bash
+
+'''
