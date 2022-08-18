@@ -38,7 +38,7 @@ impl ErrorTemplate {
 
         match template.render() {
             Ok(res) => HttpResponse::Ok()
-                .content_type("Content-Type: text/html; charset=UTF-8")
+                .content_type("text/html; charset=UTF-8")
                 .body(res), // (StatusCode::INTERNAL_SERVER_ERROR, BoxBody::from(res))
             Err(e) => HttpResponse::new(StatusCode::INTERNAL_SERVER_ERROR),
         }
@@ -54,7 +54,7 @@ async fn login_form() -> HttpResponse {
     let template = LoginTemplate {};
     match template.render() {
         Ok(res) => HttpResponse::Ok()
-            .content_type("Content-Type: text/html; charset=UTF-8")
+            .content_type("text/html; charset=UTF-8")
             .body(res),
         Err(e) => ErrorTemplate::to_response(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
     }
@@ -86,7 +86,7 @@ async fn login_handler(
             let template = AdminDashboard {};
             match template.render() {
                 Ok(res) => HttpResponse::Ok()
-                    .content_type("Content-Type: text/html; charset=UTF-8")
+                    .content_type("text/html; charset=UTF-8")
                     .body(res),
                 Err(e) => ErrorTemplate::to_response(
                     StatusCode::INTERNAL_SERVER_ERROR,
