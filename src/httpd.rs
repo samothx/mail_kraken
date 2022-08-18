@@ -12,7 +12,8 @@ use actix_files;
 // use actix_http::http::header::ContentType;
 use actix_session::{storage::CookieSessionStore, Session, SessionMiddleware};
 use actix_web::{
-    body::BoxBody, cookie::Key, get, http::StatusCode, post, web, App, HttpResponse, HttpServer,
+    body::BoxBody, cookie::Key, get, http::StatusCode, post, web, App, HttpRequest, HttpResponse,
+    HttpServer,
 };
 
 use log::{debug, error, warn};
@@ -130,10 +131,16 @@ struct Payload {
 
 #[post("/api/v1/login")]
 async fn login_handler(
+    req: HttpRequest,
     state: web::Data<Arc<SharedData>>,
     payload: web::Form<Payload>,
     session: Session,
 ) -> HttpResponse {
+    debug!(
+        "login_handler: query: {:?}, cookies: {:?}",
+        req.query_string(),
+        req.cookies()
+    );
     debug!("login_handler: payload: {:?}", payload);
     if payload.name.eq("admin") {
         let pw_hash = match hash_passwd(payload.passwd.as_str(), &state.config.admin_pw_salt) {
