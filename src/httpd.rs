@@ -1,10 +1,10 @@
 use crate::{Config, ServeCmd};
 use anyhow::{anyhow, Context, Result};
 use askama::Template;
+use bcrypt::{hash, DEFAULT_COST};
 use rand::Rng;
-use std::sync::Arc;
-
 use serde::Deserialize;
+use std::sync::Arc;
 
 use mysql_async::{prelude::*, Pool};
 
@@ -16,6 +16,7 @@ use actix_web::{
 };
 
 use log::{debug, error};
+use nix::libc::passwd;
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::PathBuf;
@@ -102,7 +103,17 @@ async fn login_handler(
     let _ = session.remove("user");
     debug!("login_handler: payload: {:?}", payload);
     if payload.name.eq("admin") {
-        if payload.passwd.eq(state.config.admin_passwd.as_str()) {
+        let pw_hash = match hash_passwd(payload.passwd.as_str()) {
+            Ok(pw_hash) => pw_hash,
+            Err(e) => {
+                error!("failed to hash admin password: {:?}", e);
+                return ErrorTemplate::to_response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "failed to create hash admin password".to_owned(),
+                );
+            }
+        };
+        if pw_hash.eq(state.config.admin_passwd.as_str()) {
             session
                 .insert("user", "admin")
                 .expect("failed to insert user into session");
@@ -142,7 +153,8 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
     } else {
         Config {
             db_url: None,
-            admin_passwd: args.init_passwd,
+            admin_passwd: hash_passwd(args.init_passwd.as_str())
+                .with_context(|| "failed to hash default password")?,
             bind_to: args.bind_to,
         }
     };
@@ -190,4 +202,8 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
     .run()
     .await
     .with_context(|| "failed to serve http content")
+}
+
+fn hash_passwd(passwd: &str) -> Result<String> {
+    Ok(hash(passwd, DEFAULT_COST)?)
 }
