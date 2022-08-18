@@ -117,16 +117,9 @@ async fn login_handler(
             session
                 .insert("user", "admin")
                 .expect("failed to insert user into session");
-            let template = AdminDashboard {};
-            match template.render() {
-                Ok(res) => HttpResponse::Ok()
-                    .content_type("text/html; charset=UTF-8")
-                    .body(res),
-                Err(e) => ErrorTemplate::to_response(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "failed to create template for AdminDashboard".to_owned(),
-                ),
-            }
+            HttpResponse::SeeOther()
+                .insert_header(("Location:", "/admin_dash"))
+                .body(())
         } else {
             warn!(
                 "login failure: pw_hash: {}, expected: {}",
@@ -212,7 +205,7 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
     .with_context(|| "failed to serve http content")
 }
 
-fn hash_passwd(passwd: &str, salt: &Vec<u8>) -> Result<String> {
+fn hash_passwd(passwd: &str, salt: &[u8]) -> Result<String> {
     assert!(salt.len() >= 16);
     let mut salt_cp = [0u8; 16];
     salt_cp.iter_mut().zip(salt).for_each(|(dest, src)| {
