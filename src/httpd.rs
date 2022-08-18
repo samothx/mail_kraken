@@ -118,7 +118,7 @@ async fn login_handler(
                 .insert("user", "admin")
                 .expect("failed to insert user into session");
             HttpResponse::SeeOther()
-                .insert_header(("Location:", "/admin_dash"))
+                .insert_header(("Location", "/admin_dash"))
                 .body(())
         } else {
             warn!(
