@@ -9,10 +9,10 @@ use serde::Deserialize;
 use mysql_async::{prelude::*, Pool};
 
 use actix_files;
-use actix_http::http::header::ContentType;
+// use actix_http::http::header::ContentType;
 use actix_session::{storage::CookieSessionStore, Session, SessionMiddleware};
 use actix_web::{
-    body::BoxBody, cookie::Key, get, http::StatusCode, web, App, HttpResponse, HttpServer,
+    body::BoxBody, cookie::Key, get, http::StatusCode, post, web, App, HttpResponse, HttpServer,
 };
 
 use log::{debug, error};
@@ -70,7 +70,7 @@ struct Payload {
 #[derive(Template)]
 #[template(path = "admin_dashboard.html")]
 struct AdminDashboard {}
-#[get("/api/v1/login")]
+#[post("/api/v1/login")]
 async fn login_handler(
     state: web::Data<Arc<SharedData>>,
     payload: web::Form<Payload>,
