@@ -46,7 +46,7 @@ impl ErrorTemplate {
 #[template(path = "login.html")]
 struct LoginTemplate {}
 
-#[get("/")]
+#[get("/login")]
 async fn login_form() -> HttpResponse {
     let template = LoginTemplate {};
     match template.render() {
@@ -65,7 +65,7 @@ struct Payload {
 #[derive(Template)]
 #[template(path = "admin_dashboard.html")]
 struct AdminDashboard {}
-
+#[get("/api/v1/login")]
 async fn login_handler(
     state: web::Data<Arc<SharedData>>,
     payload: web::Form<Payload>,
@@ -146,6 +146,7 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
             .route("/", web::get().to(HttpResponse::Ok))
             .service(actix_files::Files::new("/assets", ".").show_files_listing())
             .service(login_form)
+            .service(login_handler)
     })
     .bind(ip_addr)
     .with_context(|| "failed to bind to ip address".to_owned())?
