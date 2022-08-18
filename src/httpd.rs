@@ -16,8 +16,6 @@ use actix_web::{
 };
 
 use log::{debug, error};
-use nix::errno::errno;
-use std::collections::btree_map::Values;
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::PathBuf;
@@ -145,7 +143,7 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
     HttpServer::new(move || {
         let data = shared_data.clone();
         App::new()
-            .app_data(data)
+            .app_data(web::Data::new(data))
             .wrap(SessionMiddleware::new(
                 CookieSessionStore::default(),
                 secret_key.clone(),
