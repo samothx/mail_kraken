@@ -27,6 +27,7 @@ use mysql_async::{prelude::*, Pool};
 
 // use axum_extra::extract::cookie::PrivateCookieJar;
 
+use axum::response::Html;
 use log::error;
 use nix::errno::errno;
 use std::collections::btree_map::Values;
@@ -42,10 +43,12 @@ struct SharedData {
 #[template(path = "login.html")]
 struct LoginTemplate {}
 
-async fn login_form() -> WebResult<String> {
-    Ok(LoginTemplate {}
-        .render()
-        .map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?)
+async fn login_form() -> WebResult<Html<String>> {
+    Ok(Html::from(
+        LoginTemplate {}
+            .render()
+            .map_err(|e| StatusCode::INTERNAL_SERVER_ERROR)?,
+    ))
 }
 
 #[derive(Deserialize)]
