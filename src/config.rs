@@ -3,10 +3,11 @@ use nix::dir::Type::File;
 use serde::Deserialize;
 use std::fs;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Config {
-    pub dd_url: String,
+    pub db_url: Option<String>,
     pub admin_passwd: String,
+    pub bind_to: String,
 }
 
 impl Config {

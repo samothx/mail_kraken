@@ -13,9 +13,8 @@ anyhow = "1"
 strum_macros = "0.24"
 chrono = "0.4"
 regex = "1.6"
-nix = "0.24"
+nix = "0.25.0"
 askama = "0.11.1"
-axum-sessions = "0.3.1"
 rand = "0.8.5"
 
 toml = "0.5"
@@ -28,12 +27,16 @@ version = "1.0.143"
 version = "1"
 features = ["full"]
 
-[dependencies.axum-extra]
-version = "0.3"
-features = ["cookie", "cookie-private", "form"]
+[dependencies.actix-files]
+version = "0.6.1"
 
-[dependencies.axum]
-version = "0.5.15"
+[dependencies.actix-session]
+version = "0.7.1"
+features = ["cookie-session"]
+
+[dependencies.actix-web]
+version = "4"
+
 
 [dependencies.structopt]
 version = "0.3.14"
