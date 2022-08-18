@@ -1,21 +1,24 @@
 use anyhow::{anyhow, Result};
-use log::{debug, info};
+use log::{debug, error, info};
 use mod_logger::Logger;
 use nix::errno::errno;
 use nix::libc::{setresgid, setresuid};
 use nix::unistd::getuid;
-
+use serde::Deserialize;
 mod cmd_args;
 mod doveadm;
 mod httpd;
 pub use cmd_args::CmdArgs;
+mod config;
 mod libc_util;
 
 use crate::cmd_args::{Command, ServeCmd};
+use crate::config::Config;
 use crate::httpd::serve;
 use crate::libc_util::{strerror, UserInfo};
 
 const SWITCH2USER: &str = "nobody"; // "mail_kraken";
+const CONFIG_FILE: &str = "/etc/mail_kraken.cfg";
 
 pub async fn run(cmd_args: CmdArgs) -> Result<()> {
     // TODO: probably should not do this as su
@@ -24,14 +27,16 @@ pub async fn run(cmd_args: CmdArgs) -> Result<()> {
     Logger::set_brief_info(true);
 
     info!("initializing - cmd: {:?}", cmd_args.cmd);
+    debug!("attempting to read config from {}", CONFIG_FILE);
 
-    if !getuid().is_root() {
-        return Err(anyhow!("please run this command as root"));
-    }
-
+    let mut config = match Config::from_file(CONFIG_FILE) {
+        Ok(config) => Some(config),
+        Err(e) => {
+            error!("failed to read config file: {}", e);
+            None
+        }
+    };
     {
-        debug!("switching uid/gid to {}", SWITCH2USER);
-
         let user_info = UserInfo::from_name(SWITCH2USER)?;
 
         match unsafe { setresgid(0xFFFFFFFF, user_info.get_gid(), 0) } {
@@ -71,7 +76,7 @@ pub async fn run(cmd_args: CmdArgs) -> Result<()> {
     };
 
     match cmd_args.cmd {
-        Command::Serve(args) => serve(args).await,
+        Command::Serve(args) => serve(args, config).await,
     }
 }
 
