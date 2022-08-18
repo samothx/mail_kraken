@@ -47,10 +47,35 @@ impl ErrorTemplate {
 #[template(path = "login.html")]
 struct LoginTemplate {}
 
-#[get("/login")]
-async fn login_form() -> HttpResponse {
+#[derive(Template)]
+#[template(path = "admin_login.html")]
+struct AdminLoginTemplate {}
+
+#[get("/admin_login")]
+async fn admin_login_form() -> HttpResponse {
+    debug!("admin_login_form: ");
     let template = LoginTemplate {};
+
     match template.render() {
+        Ok(res) => HttpResponse::Ok()
+            .content_type("text/html; charset=UTF-8")
+            .body(res),
+        Err(e) => ErrorTemplate::to_response(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+    }
+}
+
+#[get("/login")]
+async fn login_form(state: web::Data<Arc<SharedData>>) -> HttpResponse {
+    debug!("login_form: admin_login: {}", state.db_conn.is_none());
+    let template = if state.db_conn.is_some() {
+        let tmpl = LoginTemplate {};
+        tmpl.render()
+    } else {
+        let tmpl = AdminLoginTemplate {};
+        tmpl.render()
+    };
+
+    match template {
         Ok(res) => HttpResponse::Ok()
             .content_type("text/html; charset=UTF-8")
             .body(res),
@@ -75,7 +100,7 @@ async fn login_handler(
     session: Session,
 ) -> HttpResponse {
     let _ = session.remove("user");
-    debug!("payload: {:?}", payload);
+    debug!("login_handler: payload: {:?}", payload);
     if payload.name.eq("admin") {
         if payload.passwd.eq(state.config.admin_passwd.as_str()) {
             session
@@ -123,7 +148,13 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
     };
 
     let pool = if let Some(db_url) = config.db_url.as_ref() {
-        Some(Pool::from_url(db_url.as_str())?)
+        match Pool::from_url(db_url.as_str()) {
+            Ok(pool) => Some(pool),
+            Err(e) => {
+                error!("failed to log in to database: {:?}", e);
+                None
+            }
+        }
     } else {
         None
     };
@@ -150,6 +181,7 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
             ))
             .route("/", web::get().to(HttpResponse::Ok))
             .service(actix_files::Files::new("/assets", ".").show_files_listing())
+            .service(admin_login_form)
             .service(login_form)
             .service(login_handler)
     })
