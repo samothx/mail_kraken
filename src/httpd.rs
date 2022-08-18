@@ -28,7 +28,7 @@ use mysql_async::{prelude::*, Pool};
 // use axum_extra::extract::cookie::PrivateCookieJar;
 
 use axum::response::Html;
-use log::error;
+use log::{debug, error};
 use nix::errno::errno;
 use std::collections::btree_map::Values;
 
@@ -94,11 +94,18 @@ pub async fn serve(args: ServeCmd, mut config: Option<Config>) -> Result<()> {
         config,
     });
 
+    let store = MemoryStore::new();
+    let mut secret = [0u8; 128];
+    rand::thread_rng().fill(&mut secret);
+    debug!("secret: {:?}", secret);
+    let session_layer = SessionLayer::new(store, &secret);
+
     let app = Router::new()
         .route("/", get(|| async { "Hello, World!" }))
         .route("/login", get(login_form))
         .route("/api/v1/login", post(login_handler))
-        .layer(Extension(Arc::new(shared_data)));
+        .layer(Extension(Arc::new(shared_data)))
+        .layer(session_layer);
 
     Ok(axum::Server::bind(&args.bind_to.parse()?)
         .serve(app.into_make_service())
