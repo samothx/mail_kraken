@@ -21,6 +21,9 @@ use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::PathBuf;
 
+const SESS_ADMIN: &str = "admin";
+const SESS_USER: &str = "user";
+
 #[derive(Template)]
 #[template(path = "error.html")]
 struct ErrorTemplate {
@@ -84,6 +87,29 @@ async fn login_form(state: web::Data<Arc<SharedData>>) -> HttpResponse {
     }
 }
 
+#[derive(Template)]
+#[template(path = "admin_dashboard.html")]
+struct AdminDashboard {}
+
+#[get("/admin_dash")]
+async fn admin_dash(state: web::Data<Arc<SharedData>>, session: Session) -> HttpResponse {
+    let is_admin = match session.get::<String>(SESS_ADMIN) {
+        Ok(admin) => admin.is_some(),
+        Err(e) => {
+            error!("failed to extract {} from session: {:?}", SESS_ADMIN, e);
+            return ErrorTemplate::to_response(StatusCode::INTERNAL_SERVER_ERROR, e.to_string());
+        }
+    };
+    debug!("admin_dash: admin_login: {}", is_admin);
+    let template = AdminDashboard {};
+    match template.render() {
+        Ok(res) => HttpResponse::Ok()
+            .content_type("text/html; charset=UTF-8")
+            .body(res),
+        Err(e) => ErrorTemplate::to_response(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+    }
+}
+
 #[derive(Deserialize, Debug)]
 struct Payload {
     #[serde(rename = "login-name")]
@@ -91,9 +117,6 @@ struct Payload {
     passwd: String,
 }
 
-#[derive(Template)]
-#[template(path = "admin_dashboard.html")]
-struct AdminDashboard {}
 #[post("/api/v1/login")]
 async fn login_handler(
     state: web::Data<Arc<SharedData>>,
@@ -115,7 +138,7 @@ async fn login_handler(
         };
         if pw_hash.eq(state.config.admin_pw_hash.as_str()) {
             session
-                .insert("user", "admin")
+                .insert(SESS_ADMIN, "1")
                 .expect("failed to insert user into session");
             HttpResponse::SeeOther()
                 .insert_header(("Location", "/admin_dash"))
@@ -197,6 +220,7 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
             .service(admin_login_form)
             .service(login_form)
             .service(login_handler)
+            .service(admin_dash)
     })
     .bind(ip_addr)
     .with_context(|| "failed to bind to ip address".to_owned())?
