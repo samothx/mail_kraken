@@ -70,8 +70,9 @@ async fn admin_login_form() -> HttpResponse {
 }
 
 #[get("/login")]
-async fn login_form(state: web::Data<Arc<SharedData>>) -> HttpResponse {
+async fn login_form(req: HttpRequest, state: web::Data<Arc<SharedData>>) -> HttpResponse {
     debug!("login_form: admin_login: {}", state.db_conn.is_none());
+    debug_cookies("login_form:", &req);
     let template = if state.db_conn.is_some() {
         let tmpl = LoginTemplate {};
         tmpl.render()
@@ -93,7 +94,11 @@ async fn login_form(state: web::Data<Arc<SharedData>>) -> HttpResponse {
 struct AdminDashboard {}
 
 #[get("/admin_dash")]
-async fn admin_dash(state: web::Data<Arc<SharedData>>, session: Session) -> HttpResponse {
+async fn admin_dash(
+    req: HttpRequest,
+    state: web::Data<Arc<SharedData>>,
+    session: Session,
+) -> HttpResponse {
     let sess_keys: Vec<String> = session
         .entries()
         .iter()
@@ -104,7 +109,7 @@ async fn admin_dash(state: web::Data<Arc<SharedData>>, session: Session) -> Http
         sess_keys,
         session.status()
     );
-
+    debug_cookies("admin_dash:", &req);
     let is_admin = match session.get::<u32>(SESS_ADMIN) {
         Ok(admin) => admin.is_some(),
         Err(e) => {
@@ -136,12 +141,9 @@ async fn login_handler(
     payload: web::Form<Payload>,
     session: Session,
 ) -> HttpResponse {
-    debug!(
-        "login_handler: query: {:?}, cookies: {:?}",
-        req.query_string(),
-        req.cookies()
-    );
+    debug!("login_handler: query: {:?}", req.query_string(),);
     debug!("login_handler: payload: {:?}", payload);
+    debug_cookies("login_handler:", &req);
     if payload.name.eq("admin") {
         let pw_hash = match hash_passwd(payload.passwd.as_str(), &state.config.admin_pw_salt) {
             Ok(pw_hash) => pw_hash,
@@ -255,6 +257,13 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
     .with_context(|| "failed to serve http content")
 }
 
+#[allow(dead_code)]
+fn debug_cookies(hdr: &str, req: &HttpRequest) {
+    debug!("{hdr}: cookies:");
+    req.cookies().iter().enumerate().for_each(|(idx, cookie)| {
+        debug!(" - {:02}: {:?}", idx, cookie);
+    });
+}
 fn hash_passwd(passwd: &str, salt: &[u8]) -> Result<String> {
     assert!(salt.len() >= 16);
     let mut salt_cp = [0u8; 16];
