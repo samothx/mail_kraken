@@ -9,6 +9,7 @@ use serde::Deserialize;
 use mysql_async::{prelude::*, Pool};
 
 use actix_files;
+use actix_http::http::header::ContentType;
 use actix_session::{storage::CookieSessionStore, Session, SessionMiddleware};
 use actix_web::{
     body::BoxBody, cookie::Key, get, http::StatusCode, web, App, HttpResponse, HttpServer,
@@ -36,7 +37,9 @@ impl ErrorTemplate {
         };
 
         match template.render() {
-            Ok(res) => HttpResponse::Ok().body(res), // (StatusCode::INTERNAL_SERVER_ERROR, BoxBody::from(res))
+            Ok(res) => HttpResponse::Ok()
+                .content_type("Content-Type: text/html; charset=UTF-8")
+                .body(res), // (StatusCode::INTERNAL_SERVER_ERROR, BoxBody::from(res))
             Err(e) => HttpResponse::new(StatusCode::INTERNAL_SERVER_ERROR),
         }
     }
@@ -50,7 +53,9 @@ struct LoginTemplate {}
 async fn login_form() -> HttpResponse {
     let template = LoginTemplate {};
     match template.render() {
-        Ok(res) => HttpResponse::Ok().body(res),
+        Ok(res) => HttpResponse::Ok()
+            .content_type("Content-Type: text/html; charset=UTF-8")
+            .body(res),
         Err(e) => ErrorTemplate::to_response(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
     }
 }
@@ -80,7 +85,9 @@ async fn login_handler(
                 .expect("failed to insert user into session");
             let template = AdminDashboard {};
             match template.render() {
-                Ok(res) => HttpResponse::Ok().body(res),
+                Ok(res) => HttpResponse::Ok()
+                    .content_type("Content-Type: text/html; charset=UTF-8")
+                    .body(res),
                 Err(e) => ErrorTemplate::to_response(
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "failed to create template for AdminDashboard".to_owned(),
