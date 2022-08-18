@@ -15,7 +15,7 @@ use actix_web::{
     body::BoxBody, cookie::Key, get, http::StatusCode, post, web, App, HttpResponse, HttpServer,
 };
 
-use log::{debug, error};
+use log::{debug, error, warn};
 use nix::libc::passwd;
 use std::error::Error;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
@@ -128,6 +128,10 @@ async fn login_handler(
                 ),
             }
         } else {
+            warn!(
+                "login failure: pw_hash: {}, expected: {}",
+                pw_hash, state.config.admin_passwd
+            );
             ErrorTemplate::to_response(
                 StatusCode::UNAUTHORIZED,
                 "please supply a valid password for admin".to_owned(),
