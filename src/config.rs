@@ -6,7 +6,8 @@ use std::fs;
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     pub db_url: Option<String>,
-    pub admin_passwd: String,
+    pub admin_pw_hash: String,
+    pub admin_pw_salt: Vec<u8>,
     pub bind_to: String,
 }
 

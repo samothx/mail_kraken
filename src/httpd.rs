@@ -1,8 +1,8 @@
 use crate::{Config, ServeCmd};
 use anyhow::{anyhow, Context, Result};
 use askama::Template;
-use bcrypt::{hash, DEFAULT_COST};
-use rand::Rng;
+use bcrypt::{hash_with_salt, Version, DEFAULT_COST};
+use rand::{thread_rng, Rng};
 use serde::Deserialize;
 use std::sync::Arc;
 
@@ -103,7 +103,7 @@ async fn login_handler(
     let _ = session.remove("user");
     debug!("login_handler: payload: {:?}", payload);
     if payload.name.eq("admin") {
-        let pw_hash = match hash_passwd(payload.passwd.as_str()) {
+        let pw_hash = match hash_passwd(payload.passwd.as_str(), &state.config.admin_pw_salt) {
             Ok(pw_hash) => pw_hash,
             Err(e) => {
                 error!("failed to hash admin password: {:?}", e);
@@ -113,7 +113,7 @@ async fn login_handler(
                 );
             }
         };
-        if pw_hash.eq(state.config.admin_passwd.as_str()) {
+        if pw_hash.eq(state.config.admin_pw_hash.as_str()) {
             session
                 .insert("user", "admin")
                 .expect("failed to insert user into session");
@@ -130,7 +130,7 @@ async fn login_handler(
         } else {
             warn!(
                 "login failure: pw_hash: {}, expected: {}",
-                pw_hash, state.config.admin_passwd
+                pw_hash, state.config.admin_pw_hash
             );
             ErrorTemplate::to_response(
                 StatusCode::UNAUTHORIZED,
@@ -155,10 +155,14 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
     let config = if let Some(config) = config {
         config
     } else {
+        let mut admin_pw_salt = vec![0u8; 16];
+        thread_rng().fill(&mut admin_pw_salt[..]);
+
         Config {
             db_url: None,
-            admin_passwd: hash_passwd(args.init_passwd.as_str())
+            admin_pw_hash: hash_passwd(args.init_passwd.as_str(), &admin_pw_salt)
                 .with_context(|| "failed to hash default password")?,
+            admin_pw_salt,
             bind_to: args.bind_to,
         }
     };
@@ -208,6 +212,11 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
     .with_context(|| "failed to serve http content")
 }
 
-fn hash_passwd(passwd: &str) -> Result<String> {
-    Ok(hash(passwd, DEFAULT_COST)?)
+fn hash_passwd(passwd: &str, salt: &Vec<u8>) -> Result<String> {
+    assert!(salt.len() >= 16);
+    let mut salt_cp = [0u8; 16];
+    salt_cp.iter_mut().zip(salt).for_each(|(dest, src)| {
+        *dest = *src;
+    });
+    Ok(hash_with_salt(passwd, DEFAULT_COST, salt_cp)?.format_for_version(Version::TwoA))
 }
