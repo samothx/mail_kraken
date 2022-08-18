@@ -93,6 +93,13 @@ struct AdminDashboard {}
 
 #[get("/admin_dash")]
 async fn admin_dash(state: web::Data<Arc<SharedData>>, session: Session) -> HttpResponse {
+    let sess_keys: Vec<String> = session
+        .entries()
+        .iter()
+        .map(|(key, _)| key.clone())
+        .collect();
+    debug!("admin_dash: session keys: {:?}", sess_keys);
+
     let is_admin = match session.get::<u32>(SESS_ADMIN) {
         Ok(admin) => admin.is_some(),
         Err(e) => {
@@ -123,7 +130,6 @@ async fn login_handler(
     payload: web::Form<Payload>,
     session: Session,
 ) -> HttpResponse {
-    let _ = session.remove("user");
     debug!("login_handler: payload: {:?}", payload);
     if payload.name.eq("admin") {
         let pw_hash = match hash_passwd(payload.passwd.as_str(), &state.config.admin_pw_salt) {
@@ -141,7 +147,7 @@ async fn login_handler(
                 .insert(SESS_ADMIN, 1u32)
                 .expect("failed to insert user into session");
             debug!(
-                "login_handler: login succssful, session[{}] {:?}",
+                "login_handler: login successful, session[{}] {:?}",
                 SESS_ADMIN,
                 session.get::<u32>(SESS_ADMIN)
             );
@@ -149,6 +155,7 @@ async fn login_handler(
                 .insert_header(("Location", "/admin_dash"))
                 .body(())
         } else {
+            let _ = session.remove(SESS_ADMIN);
             warn!(
                 "login failure: pw_hash: {}, expected: {}",
                 pw_hash, state.config.admin_pw_hash
@@ -159,6 +166,7 @@ async fn login_handler(
             )
         }
     } else {
+        let _ = session.remove(SESS_USER);
         ErrorTemplate::to_response(
             StatusCode::INTERNAL_SERVER_ERROR,
             "not implemented: please login as admin with password".to_owned(),
@@ -173,6 +181,7 @@ struct SharedData {
 }
 
 pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
+    debug!("serve: entered");
     let config = if let Some(config) = config {
         config
     } else {
