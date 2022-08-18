@@ -93,7 +93,7 @@ struct AdminDashboard {}
 
 #[get("/admin_dash")]
 async fn admin_dash(state: web::Data<Arc<SharedData>>, session: Session) -> HttpResponse {
-    let is_admin = match session.get::<String>(SESS_ADMIN) {
+    let is_admin = match session.get::<u32>(SESS_ADMIN) {
         Ok(admin) => admin.is_some(),
         Err(e) => {
             error!("failed to extract {} from session: {:?}", SESS_ADMIN, e);
@@ -138,8 +138,13 @@ async fn login_handler(
         };
         if pw_hash.eq(state.config.admin_pw_hash.as_str()) {
             session
-                .insert(SESS_ADMIN, "1")
+                .insert(SESS_ADMIN, 1u32)
                 .expect("failed to insert user into session");
+            debug!(
+                "login_handler: login succssful, session[{}] {:?}",
+                SESS_ADMIN,
+                session.get::<u32>(SESS_ADMIN)
+            );
             HttpResponse::SeeOther()
                 .insert_header(("Location", "/admin_dash"))
                 .body(())
