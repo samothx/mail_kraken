@@ -98,7 +98,11 @@ async fn admin_dash(state: web::Data<Arc<SharedData>>, session: Session) -> Http
         .iter()
         .map(|(key, _)| key.clone())
         .collect();
-    debug!("admin_dash: session keys: {:?}", sess_keys);
+    debug!(
+        "admin_dash: session keys: {:?}, status: {:?}",
+        sess_keys,
+        session.status()
+    );
 
     let is_admin = match session.get::<u32>(SESS_ADMIN) {
         Ok(admin) => admin.is_some(),
@@ -147,9 +151,10 @@ async fn login_handler(
                 .insert(SESS_ADMIN, 1u32)
                 .expect("failed to insert user into session");
             debug!(
-                "login_handler: login successful, session[{}] {:?}",
+                "login_handler: login successful, session[{}] {:?}, status: {:?}",
                 SESS_ADMIN,
-                session.get::<u32>(SESS_ADMIN)
+                session.get::<u32>(SESS_ADMIN),
+                session.status()
             );
             HttpResponse::SeeOther()
                 .insert_header(("Location", "/admin_dash"))
