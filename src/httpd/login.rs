@@ -31,7 +31,7 @@ pub async fn admin_login_form() -> HttpResponse {
 #[get("/login")]
 pub async fn login_form(req: HttpRequest, state: web::Data<Arc<SharedData>>) -> HttpResponse {
     debug!("login_form: admin_login: {}", state.db_conn.is_none());
-    debug_cookies("login_form:", &req);
+    // debug_cookies("login_form:", &req);
     let template = if state.db_conn.is_some() {
         let tmpl = LoginTemplate {};
         tmpl.render()
@@ -64,7 +64,7 @@ pub async fn login_handler(
 ) -> HttpResponse {
     debug!("login_handler: query: {:?}", req.query_string(),);
     debug!("login_handler: payload: {:?}", payload);
-    debug_cookies("login_handler:", &req);
+    // debug_cookies("login_handler:", &req);
     debug!("login_handler: called with id: {:?}", id.identity());
     if payload.name.eq("admin") {
         let pw_hash = match hash_passwd(payload.passwd.as_str(), &state.config.admin_pw_salt) {

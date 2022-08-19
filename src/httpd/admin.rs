@@ -17,7 +17,7 @@ pub async fn admin_dash(
     id: Identity,
 ) -> HttpResponse {
     debug!("admin_dash: called with id: {:?}", id.identity());
-    debug_cookies("admin_dash:", &req);
+    // debug_cookies("admin_dash:", &req);
     let is_admin = id
         .identity()
         .unwrap_or_else(|| "noone".to_owned())
