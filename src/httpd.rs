@@ -93,13 +93,6 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
     .with_context(|| "failed to serve http content")
 }
 
-#[allow(dead_code)]
-fn debug_cookies(hdr: &str, req: &HttpRequest) {
-    debug!("{hdr}: cookies:");
-    req.cookies().iter().enumerate().for_each(|(idx, cookie)| {
-        debug!(" - {:02}: {:?}", idx, cookie);
-    });
-}
 fn hash_passwd(passwd: &str, salt: &[u8]) -> Result<String> {
     assert!(salt.len() >= 16);
     let mut salt_cp = [0u8; 16];
@@ -107,4 +100,12 @@ fn hash_passwd(passwd: &str, salt: &[u8]) -> Result<String> {
         *dest = *src;
     });
     Ok(hash_with_salt(passwd, DEFAULT_COST, salt_cp)?.format_for_version(Version::TwoA))
+}
+
+#[allow(dead_code)]
+fn debug_cookies(hdr: &str, req: &HttpRequest) {
+    debug!("{hdr}: cookies:");
+    req.cookies().iter().enumerate().for_each(|(idx, cookie)| {
+        debug!(" - {:02}: {:?}", idx, cookie);
+    });
 }
