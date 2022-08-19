@@ -1,195 +1,30 @@
 use crate::{Config, ServeCmd};
-use anyhow::{anyhow, Context, Result};
-use askama::Template;
+use anyhow::{Context, Result};
 use bcrypt::{hash_with_salt, Version, DEFAULT_COST};
 use rand::{thread_rng, Rng};
-use serde::Deserialize;
 use std::sync::Arc;
 
-use mysql_async::{prelude::*, Pool};
+use mysql_async::Pool;
 
-use actix_files;
-// use actix_http::http::header::{header, ContentType};
-// use actix_session::{storage::CookieSessionStore, Session, SessionMiddleware};
-
-use actix_identity::Identity;
+use actix_files::Files as ActixFiles;
 use actix_identity::{CookieIdentityPolicy, IdentityService};
 
-use actix_web::{
-    body::BoxBody, cookie::Key, get, http::StatusCode, post, web, App, HttpRequest, HttpResponse,
-    HttpServer,
-};
+use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 
-use crate::doveadm::SearchParam::Header;
-use log::{debug, error, warn};
-use nix::libc::passwd;
-use std::error::Error;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
-use std::path::PathBuf;
+use log::{debug, error};
+use std::net::SocketAddr;
 
-const SESS_ADMIN: &str = "admin";
-const SESS_USER: &str = "user";
+const ADMIN_NAME: &str = "admin";
 
-#[derive(Template)]
-#[template(path = "error.html")]
-struct ErrorTemplate {
-    status: String,
-    message: String,
-}
+mod admin;
+mod error;
+mod login;
 
-impl ErrorTemplate {
-    pub fn to_response(status: StatusCode, message: String) -> HttpResponse {
-        let template = ErrorTemplate {
-            status: status.as_str().to_owned(),
-            message,
-        };
-
-        match template.render() {
-            Ok(res) => HttpResponse::Ok()
-                .content_type("text/html; charset=UTF-8")
-                .body(res), // (StatusCode::INTERNAL_SERVER_ERROR, BoxBody::from(res))
-            Err(e) => HttpResponse::new(StatusCode::INTERNAL_SERVER_ERROR),
-        }
-    }
-}
-
-#[derive(Template)]
-#[template(path = "login.html")]
-struct LoginTemplate {}
-
-#[derive(Template)]
-#[template(path = "admin_login.html")]
-struct AdminLoginTemplate {}
-
-#[get("/admin_login")]
-async fn admin_login_form() -> HttpResponse {
-    debug!("admin_login_form: ");
-    let template = LoginTemplate {};
-
-    match template.render() {
-        Ok(res) => HttpResponse::Ok()
-            .content_type("text/html; charset=UTF-8")
-            .body(res),
-        Err(e) => ErrorTemplate::to_response(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
-    }
-}
-
-#[get("/login")]
-async fn login_form(req: HttpRequest, state: web::Data<Arc<SharedData>>) -> HttpResponse {
-    debug!("login_form: admin_login: {}", state.db_conn.is_none());
-    debug_cookies("login_form:", &req);
-    let template = if state.db_conn.is_some() {
-        let tmpl = LoginTemplate {};
-        tmpl.render()
-    } else {
-        let tmpl = AdminLoginTemplate {};
-        tmpl.render()
-    };
-
-    match template {
-        Ok(res) => HttpResponse::Ok()
-            .content_type("text/html; charset=UTF-8")
-            .body(res),
-        Err(e) => ErrorTemplate::to_response(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
-    }
-}
-
-#[derive(Template)]
-#[template(path = "admin_dashboard.html")]
-struct AdminDashboard {}
-
-#[get("/admin_dash")]
-async fn admin_dash(
-    req: HttpRequest,
-    state: web::Data<Arc<SharedData>>,
-    id: Identity,
-) -> HttpResponse {
-    debug!("admin_dash: called with id: {:?}", id.identity());
-    debug_cookies("admin_dash:", &req);
-    let is_admin = id
-        .identity()
-        .unwrap_or_else(|| "noone".to_owned())
-        .eq(SESS_ADMIN);
-    /*match session.get::<u32>(SESS_ADMIN) {
-        Ok(admin) => admin.is_some(),
-        Err(e) => {
-            error!("failed to extract {} from session: {:?}", SESS_ADMIN, e);
-            return ErrorTemplate::to_response(StatusCode::INTERNAL_SERVER_ERROR, e.to_string());
-        }
-    };
-     */
-    debug!("admin_dash: admin_login: {}", is_admin);
-    let template = AdminDashboard {};
-    match template.render() {
-        Ok(res) => HttpResponse::Ok()
-            .content_type("text/html; charset=UTF-8")
-            .body(res),
-        Err(e) => ErrorTemplate::to_response(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
-    }
-}
-
-#[derive(Deserialize, Debug)]
-struct Payload {
-    #[serde(rename = "login-name")]
-    name: String,
-    passwd: String,
-}
-
-#[post("/api/v1/login")]
-async fn login_handler(
-    req: HttpRequest,
-    state: web::Data<Arc<SharedData>>,
-    payload: web::Form<Payload>,
-    id: Identity,
-) -> HttpResponse {
-    debug!("login_handler: query: {:?}", req.query_string(),);
-    debug!("login_handler: payload: {:?}", payload);
-    debug_cookies("login_handler:", &req);
-    debug!("login_handler: called with id: {:?}", id.identity());
-    if payload.name.eq("admin") {
-        let pw_hash = match hash_passwd(payload.passwd.as_str(), &state.config.admin_pw_salt) {
-            Ok(pw_hash) => pw_hash,
-            Err(e) => {
-                error!("failed to hash admin password: {:?}", e);
-                return ErrorTemplate::to_response(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "failed to create hash admin password".to_owned(),
-                );
-            }
-        };
-        if pw_hash.eq(state.config.admin_pw_hash.as_str()) {
-            id.remember(SESS_ADMIN.to_owned());
-            debug!(
-                "login_handler: login successful, id: {}",
-                id.identity().unwrap_or_else(|| "unknown".to_owned()),
-            );
-            HttpResponse::SeeOther()
-                .insert_header(("Location", "/admin_dash"))
-                // .cookie(session.)
-                .body(())
-        } else {
-            id.forget();
-
-            warn!(
-                "login failure: pw_hash: {}, expected: {}",
-                pw_hash, state.config.admin_pw_hash
-            );
-            ErrorTemplate::to_response(
-                StatusCode::UNAUTHORIZED,
-                "please supply a valid password for admin".to_owned(),
-            )
-        }
-    } else {
-        id.forget();
-        ErrorTemplate::to_response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "not implemented: please login as admin with password".to_owned(),
-        )
-    }
-}
+use crate::httpd::admin::admin_dash;
+use crate::httpd::login::{admin_login_form, login_form, login_handler};
 
 #[derive(Debug)]
-struct SharedData {
+pub struct SharedData {
     config: Config,
     db_conn: Option<Pool>,
 }
@@ -245,7 +80,7 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
                     .secure(false),
             ))
             .route("/", web::get().to(HttpResponse::Ok))
-            .service(actix_files::Files::new("/assets", ".").show_files_listing())
+            .service(ActixFiles::new("/assets", ".").show_files_listing())
             .service(admin_login_form)
             .service(login_form)
             .service(login_handler)

@@ -1,11 +1,8 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use log::{debug, error, info};
 use mod_logger::Logger;
 use nix::errno::errno;
 use nix::libc::{setresgid, setresuid};
-use nix::unistd::getuid;
-use serde::Deserialize;
-use std::ops::Deref;
 mod cmd_args;
 mod doveadm;
 mod httpd;
@@ -30,7 +27,7 @@ pub async fn run(cmd_args: CmdArgs) -> Result<()> {
     info!("initializing - cmd: {:?}", cmd_args.cmd);
     debug!("attempting to read config from {}", CONFIG_FILE);
 
-    let mut config = match Config::from_file(CONFIG_FILE) {
+    let config = match Config::from_file(CONFIG_FILE) {
         Ok(config) => Some(config),
         Err(e) => {
             error!("failed to read config file: {}", e);

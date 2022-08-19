@@ -1,9 +1,8 @@
 use anyhow::Result;
-use nix::dir::Type::File;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Config {
     pub db_url: Option<String>,
     pub admin_pw_hash: String,
