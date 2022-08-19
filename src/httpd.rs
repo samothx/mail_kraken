@@ -9,13 +9,18 @@ use std::sync::Arc;
 use mysql_async::{prelude::*, Pool};
 
 use actix_files;
-// use actix_http::http::header::ContentType;
-use actix_session::{storage::CookieSessionStore, Session, SessionMiddleware};
+// use actix_http::http::header::{header, ContentType};
+// use actix_session::{storage::CookieSessionStore, Session, SessionMiddleware};
+
+use actix_identity::Identity;
+use actix_identity::{CookieIdentityPolicy, IdentityService};
+
 use actix_web::{
     body::BoxBody, cookie::Key, get, http::StatusCode, post, web, App, HttpRequest, HttpResponse,
     HttpServer,
 };
 
+use crate::doveadm::SearchParam::Header;
 use log::{debug, error, warn};
 use nix::libc::passwd;
 use std::error::Error;
@@ -97,26 +102,22 @@ struct AdminDashboard {}
 async fn admin_dash(
     req: HttpRequest,
     state: web::Data<Arc<SharedData>>,
-    session: Session,
+    id: Identity,
 ) -> HttpResponse {
-    let sess_keys: Vec<String> = session
-        .entries()
-        .iter()
-        .map(|(key, _)| key.clone())
-        .collect();
-    debug!(
-        "admin_dash: session keys: {:?}, status: {:?}",
-        sess_keys,
-        session.status()
-    );
+    debug!("admin_dash: called with id: {:?}", id.identity());
     debug_cookies("admin_dash:", &req);
-    let is_admin = match session.get::<u32>(SESS_ADMIN) {
+    let is_admin = id
+        .identity()
+        .unwrap_or_else(|| "noone".to_owned())
+        .eq(SESS_ADMIN);
+    /*match session.get::<u32>(SESS_ADMIN) {
         Ok(admin) => admin.is_some(),
         Err(e) => {
             error!("failed to extract {} from session: {:?}", SESS_ADMIN, e);
             return ErrorTemplate::to_response(StatusCode::INTERNAL_SERVER_ERROR, e.to_string());
         }
     };
+     */
     debug!("admin_dash: admin_login: {}", is_admin);
     let template = AdminDashboard {};
     match template.render() {
@@ -139,11 +140,12 @@ async fn login_handler(
     req: HttpRequest,
     state: web::Data<Arc<SharedData>>,
     payload: web::Form<Payload>,
-    session: Session,
+    id: Identity,
 ) -> HttpResponse {
     debug!("login_handler: query: {:?}", req.query_string(),);
     debug!("login_handler: payload: {:?}", payload);
     debug_cookies("login_handler:", &req);
+    debug!("login_handler: called with id: {:?}", id.identity());
     if payload.name.eq("admin") {
         let pw_hash = match hash_passwd(payload.passwd.as_str(), &state.config.admin_pw_salt) {
             Ok(pw_hash) => pw_hash,
@@ -156,20 +158,18 @@ async fn login_handler(
             }
         };
         if pw_hash.eq(state.config.admin_pw_hash.as_str()) {
-            session
-                .insert(SESS_ADMIN, 1u32)
-                .expect("failed to insert user into session");
+            id.remember(SESS_ADMIN.to_owned());
             debug!(
-                "login_handler: login successful, session[{}] {:?}, status: {:?}",
-                SESS_ADMIN,
-                session.get::<u32>(SESS_ADMIN),
-                session.status()
+                "login_handler: login successful, id: {}",
+                id.identity().unwrap_or_else(|| "unknown".to_owned()),
             );
             HttpResponse::SeeOther()
                 .insert_header(("Location", "/admin_dash"))
+                // .cookie(session.)
                 .body(())
         } else {
-            let _ = session.remove(SESS_ADMIN);
+            id.forget();
+
             warn!(
                 "login failure: pw_hash: {}, expected: {}",
                 pw_hash, state.config.admin_pw_hash
@@ -180,7 +180,7 @@ async fn login_handler(
             )
         }
     } else {
-        let _ = session.remove(SESS_USER);
+        id.forget();
         ErrorTemplate::to_response(
             StatusCode::INTERNAL_SERVER_ERROR,
             "not implemented: please login as admin with password".to_owned(),
@@ -233,15 +233,16 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
         config,
     });
 
-    let secret_key = Key::generate();
+    let private_key = rand::thread_rng().gen::<[u8; 32]>();
 
     HttpServer::new(move || {
         let data = shared_data.clone();
         App::new()
             .app_data(web::Data::new(data))
-            .wrap(SessionMiddleware::new(
-                CookieSessionStore::default(),
-                secret_key.clone(),
+            .wrap(IdentityService::new(
+                CookieIdentityPolicy::new(&private_key)
+                    .name("mail-kraken")
+                    .secure(false),
             ))
             .route("/", web::get().to(HttpResponse::Ok))
             .service(actix_files::Files::new("/assets", ".").show_files_listing())
