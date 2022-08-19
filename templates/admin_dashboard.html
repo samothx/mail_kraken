@@ -1,16 +1,31 @@
 {% include "header.html" %}
 <div class="entry">
   <h2>Mail Kraken - Dashboard</h2>
-  <div class="login">
+  <div class="dash_cntr">
+    <h3>Change Admin Password</h3>
     <table>
-      <form action="/api/v1/login" method="post">
+      <form action="/api/v1/admin/passwd" method="post">
         <tr>
-          <td>Login Name:</td>
-          <td><input type="email" name="login-name" /></td>
+          <td>Admin Password:</td>
+          <td><input type="password" name="passwd" /></td>
         <tr/>
         <tr>
-          <td>Password:</td>
-          <td><input type="password" name="passwd" /></td>
+          <td>Repeat Admin Password:</td>
+          <td><input type="password" name="repeat_passwd" /></td>
+        <tr/>
+        <tr>
+          <td colspan="2"><button type="submit">Submit</button></td>
+        <tr/>
+      </form>
+    </table>
+  </div>
+  <div class="dash_cntr">
+    <h3>Database URL</h3>
+    <table>
+      <form action="/api/v1/admin/db_url" method="post">
+        <tr>
+          <td>Database Url:</td>
+          <td><input type="url" name="db_ulr" value="{{db_url}}"/></td>
         <tr/>
         <tr>
           <td colspan="2"><button type="submit">Login</button></td>
