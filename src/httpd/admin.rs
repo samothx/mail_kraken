@@ -18,24 +18,19 @@ pub async fn admin_dash(
 ) -> HttpResponse {
     debug!("admin_dash: called with id: {:?}", id.identity());
     // debug_cookies("admin_dash:", &req);
-    let is_admin = id
+    if id
         .identity()
         .unwrap_or_else(|| "noone".to_owned())
-        .eq(ADMIN_NAME);
-    /*match session.get::<u32>(SESS_ADMIN) {
-        Ok(admin) => admin.is_some(),
-        Err(e) => {
-            error!("failed to extract {} from session: {:?}", SESS_ADMIN, e);
-            return ErrorTemplate::to_response(StatusCode::INTERNAL_SERVER_ERROR, e.to_string());
+        .eq(ADMIN_NAME)
+    {
+        let template = AdminDashboard {};
+        match template.render() {
+            Ok(res) => HttpResponse::Ok()
+                .content_type("text/html; charset=UTF-8")
+                .body(res),
+            Err(e) => ErrorTemplate::to_response(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
         }
-    };
-     */
-    debug!("admin_dash: admin_login: {}", is_admin);
-    let template = AdminDashboard {};
-    match template.render() {
-        Ok(res) => HttpResponse::Ok()
-            .content_type("text/html; charset=UTF-8")
-            .body(res),
-        Err(e) => ErrorTemplate::to_response(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+    } else {
+        HttpResponse::Unauthorized().body(())
     }
 }
