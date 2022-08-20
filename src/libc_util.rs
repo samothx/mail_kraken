@@ -10,6 +10,7 @@ use nix::{
     unistd::{self},
 };
 
+use nix::libc::mode_t;
 use std::ffi::{CStr, CString};
 use std::mem::MaybeUninit;
 use std::path::Path;
@@ -175,6 +176,30 @@ pub fn strerror(rc: c_int) -> Option<String> {
             Ok(msg) => Some(msg.to_owned()),
             Err(_) => None,
         }
+    }
+}
+
+pub fn chown<P: AsRef<Path>>(path: P, uid: uid_t, gid: gid_t) -> Result<()> {
+    let c_path = LibCString::try_from(path.as_ref())?;
+    let rc = unsafe { nix::libc::chown(c_path.to_ptr(), uid, gid) };
+    if rc == 0 {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            strerror(errno().to_owned()).unwrap_or_else(|| "strerror failed".to_owned())
+        ))
+    }
+}
+
+pub fn chmod<P: AsRef<Path>>(path: P, mode: mode_t) -> Result<()> {
+    let c_path = LibCString::try_from(path.as_ref())?;
+    let rc = unsafe { nix::libc::chmod(c_path.to_ptr(), mode) };
+    if rc == 0 {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            strerror(errno().to_owned()).unwrap_or_else(|| "strerror failed".to_owned())
+        ))
     }
 }
 

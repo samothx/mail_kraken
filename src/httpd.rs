@@ -1,8 +1,6 @@
 use crate::{Config, ServeCmd};
 use anyhow::{Context, Result};
-use bcrypt::{hash_with_salt, Version, DEFAULT_COST};
-use rand::{thread_rng, Rng};
-use std::sync::Arc;
+use rand::Rng;
 
 use mysql_async::Pool;
 
@@ -19,34 +17,21 @@ const ADMIN_NAME: &str = "admin";
 mod admin;
 mod error;
 mod login;
+mod state_data;
 
-use crate::httpd::admin::admin_dash;
+use crate::httpd::admin::{admin_dash, admin_db_url, admin_passwd};
 use crate::httpd::login::{admin_login_form, login_form, login_handler};
-
-#[derive(Debug)]
-pub struct SharedData {
-    config: Config,
-    db_conn: Option<Pool>,
-}
+use state_data::{SharedData, StateData};
 
 pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
     debug!("serve: entered");
     let config = if let Some(config) = config {
         config
     } else {
-        let mut admin_pw_salt = vec![0u8; 16];
-        thread_rng().fill(&mut admin_pw_salt[..]);
-
-        Config {
-            db_url: None,
-            admin_pw_hash: hash_passwd(args.init_passwd.as_str(), &admin_pw_salt)
-                .with_context(|| "failed to hash default password")?,
-            admin_pw_salt,
-            bind_to: args.bind_to,
-        }
+        Config::new(None, args.init_passwd, args.bind_to)
     };
 
-    let pool = if let Some(db_url) = config.db_url.as_ref() {
+    let pool = if let Some(db_url) = config.get_db_url() {
         match Pool::from_url(db_url.as_str()) {
             Ok(pool) => Some(pool),
             Err(e) => {
@@ -59,11 +44,11 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
     };
 
     let ip_addr = config
-        .bind_to
+        .get_bind_to()
         .parse::<SocketAddr>()
-        .with_context(|| format!("unable to parse IP address {}", config.bind_to.as_str()))?;
+        .with_context(|| format!("unable to parse IP address {}", config.get_bind_to()))?;
 
-    let shared_data = Arc::new(SharedData {
+    let shared_data = StateData::new(SharedData {
         db_conn: pool,
         config,
     });
@@ -82,6 +67,8 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
             .route("/", web::get().to(HttpResponse::Ok))
             .service(ActixFiles::new("/assets", ".").show_files_listing())
             .service(admin_login_form)
+            .service(admin_passwd)
+            .service(admin_db_url)
             .service(login_form)
             .service(login_handler)
             .service(admin_dash)
@@ -91,15 +78,6 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
     .run()
     .await
     .with_context(|| "failed to serve http content")
-}
-
-fn hash_passwd(passwd: &str, salt: &[u8]) -> Result<String> {
-    assert!(salt.len() >= 16);
-    let mut salt_cp = [0u8; 16];
-    salt_cp.iter_mut().zip(salt).for_each(|(dest, src)| {
-        *dest = *src;
-    });
-    Ok(hash_with_salt(passwd, DEFAULT_COST, salt_cp)?.format_for_version(Version::TwoA))
 }
 
 #[allow(dead_code)]

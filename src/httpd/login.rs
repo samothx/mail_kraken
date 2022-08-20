@@ -1,5 +1,5 @@
 use crate::httpd::error::ErrorTemplate;
-use crate::httpd::{debug_cookies, hash_passwd, SharedData, ADMIN_NAME};
+use crate::httpd::{SharedData, ADMIN_NAME};
 use actix_identity::Identity;
 use actix_web::{get, http::StatusCode, post, web, HttpRequest, HttpResponse};
 use askama::Template;
@@ -29,7 +29,7 @@ pub async fn admin_login_form() -> HttpResponse {
 }
 
 #[get("/login")]
-pub async fn login_form(req: HttpRequest, state: web::Data<Arc<SharedData>>) -> HttpResponse {
+pub async fn login_form(state: web::Data<Arc<SharedData>>) -> HttpResponse {
     debug!("login_form: admin_login: {}", state.db_conn.is_none());
     // debug_cookies("login_form:", &req);
     let template = if state.db_conn.is_some() {
@@ -67,37 +67,35 @@ pub async fn login_handler(
     // debug_cookies("login_handler:", &req);
     debug!("login_handler: called with id: {:?}", id.identity());
     if payload.name.eq("admin") {
-        let pw_hash = match hash_passwd(payload.passwd.as_str(), &state.config.admin_pw_salt) {
-            Ok(pw_hash) => pw_hash,
-            Err(e) => {
-                error!("failed to hash admin password: {:?}", e);
-                return ErrorTemplate::to_response(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "failed to create hash admin password".to_owned(),
-                );
-            }
-        };
-        if pw_hash.eq(state.config.admin_pw_hash.as_str()) {
-            id.remember(ADMIN_NAME.to_owned());
-            debug!(
-                "login_handler: login successful, id: {}",
-                id.identity().unwrap_or_else(|| "unknown".to_owned()),
-            );
-            HttpResponse::SeeOther()
-                .insert_header(("Location", "/admin_dash"))
-                // .cookie(session.)
-                .body(())
-        } else {
-            id.forget();
+        match state.config.is_admin_passwd(payload.passwd.as_str()) {
+            Ok(is_passwd) => {
+                if is_passwd {
+                    id.remember(ADMIN_NAME.to_owned());
+                    debug!(
+                        "login_handler: login successful, id: {}",
+                        id.identity().unwrap_or_else(|| "unknown".to_owned())
+                    );
+                    HttpResponse::SeeOther()
+                        .insert_header(("Location", "/admin_dash"))
+                        // .cookie(session.)
+                        .body(())
+                } else {
+                    id.forget();
 
-            warn!(
-                "login failure: pw_hash: {}, expected: {}",
-                pw_hash, state.config.admin_pw_hash
-            );
-            ErrorTemplate::to_response(
-                StatusCode::UNAUTHORIZED,
-                "please supply a valid password for admin".to_owned(),
-            )
+                    warn!("login failure:");
+                    ErrorTemplate::to_response(
+                        StatusCode::UNAUTHORIZED,
+                        "please supply a valid password for admin".to_owned(),
+                    )
+                }
+            }
+            Err(e) => {
+                error!("failed to check admin password: {:?}", e);
+                ErrorTemplate::to_response(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "failed to check admin password".to_owned(),
+                )
+            }
         }
     } else {
         id.forget();
