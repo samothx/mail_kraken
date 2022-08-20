@@ -3,7 +3,6 @@ use crate::util::{hash_passwd, make_salt, SWITCH2USER};
 use crate::{switch_to_user, UserInfo};
 use anyhow::{Context, Result};
 use log::debug;
-use nix::libc::passwd;
 use nix::unistd::getuid;
 use serde::{Deserialize, Serialize};
 use std::fs;

@@ -59,10 +59,7 @@ impl Parser for HdrParser {
                         } else {
                             let key = captures
                                     .get(2)
-                                    .expect(
-                                        format!("HdrParser::parse_first_field: unexpected empty Hdr name in line '{}'", line)
-                                            .as_str(),
-                                    )
+                                    .unwrap_or_else(|| panic!("HdrParser::parse_first_field: unexpected empty Hdr value in line '{}'", line))
                                     .as_str()
                                     .to_owned();
 
@@ -70,10 +67,7 @@ impl Parser for HdrParser {
                                     key.clone(),
                                     captures
                                         .get(3)
-                                        .expect(
-                                            format!("HdrParser::parse_first_field: unexpected empty Hdr value in line '{}'", line)
-                                                .as_str(),
-                                        )
+                                        .unwrap_or_else(|| panic!("HdrParser::parse_first_field: unexpected empty Hdr value in line '{}'", line))
                                         .as_str()
                                         .to_owned(),
                                 ).map_or((), |_| warn!("duplicate key found: '{}'", key));
