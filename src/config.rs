@@ -3,6 +3,7 @@ use crate::util::{hash_passwd, make_salt, SWITCH2USER};
 use crate::{switch_to_user, UserInfo};
 use anyhow::{Context, Result};
 use log::debug;
+use nix::libc::passwd;
 use nix::unistd::getuid;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -18,13 +19,14 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(db_url: Option<String>, admin_pw_hash: String, bind_to: String) -> Config {
-        Config {
+    pub fn new(db_url: Option<String>, admin_pw: String, bind_to: String) -> Result<Config> {
+        let admin_pw_salt = make_salt();
+        Ok(Config {
             db_url,
-            admin_pw_hash,
-            admin_pw_salt: make_salt(),
+            admin_pw_hash: hash_passwd(admin_pw.as_str(), admin_pw_salt.as_str())?,
+            admin_pw_salt,
             bind_to,
-        }
+        })
     }
 
     pub fn from_file() -> Result<Config> {
@@ -35,7 +37,7 @@ impl Config {
 
     pub fn is_admin_passwd(&self, passwd: &str) -> Result<bool> {
         debug!(
-            "is_admin_passwd: com,paring hashes: {}/{}",
+            "is_admin_passwd: comparing hashes: \n{}\n{}",
             self.admin_pw_hash,
             hash_passwd(passwd, &self.admin_pw_salt).expect("failed to hash password")
         );

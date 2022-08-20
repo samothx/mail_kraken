@@ -28,7 +28,7 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
     let config = if let Some(config) = config {
         config
     } else {
-        Config::new(None, args.init_passwd, args.bind_to)
+        Config::new(None, args.init_passwd, args.bind_to)?
     };
 
     let pool = if let Some(db_url) = config.get_db_url() {
