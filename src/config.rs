@@ -34,6 +34,11 @@ impl Config {
     }
 
     pub fn is_admin_passwd(&self, passwd: &str) -> Result<bool> {
+        debug!(
+            "is_admin_passwd: com,paring hashes: {}/{}",
+            self.admin_pw_hash,
+            hash_passwd(passwd, &self.admin_pw_salt).expect("failed to hash password")
+        );
         Ok(hash_passwd(passwd, &self.admin_pw_salt)?.eq(&self.admin_pw_hash))
     }
 
