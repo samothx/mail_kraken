@@ -5,7 +5,8 @@ function login() {
 		passwd: $('#passwd').val()
 	};
 
-	console.log("posting login request with data: ${login_data}" );
+	console.log(`posting login request with data: ${login_data}` );
+
 	axios.post('/api/v1/login', 
 		login_data ,{
 		headers: {
