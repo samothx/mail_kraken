@@ -83,18 +83,14 @@ pub async fn login_handler(
     payload: web::Json<Payload>,
     id: Identity,
 ) -> HttpResponse {
-    debug!("login_handler: query: {:?}", req);
-    // debug!("login_handler: payload: {:?}", payload);
-    // debug_cookies("login_handler:", &req);
     debug!(
         "login_handler: called with id: {:?}, login: {}",
         id.identity(),
         payload.login
     );
-
-    if payload.login.eq("admin") {
-        match state.get_state() {
-            Ok(state) => {
+    match state.get_state() {
+        Ok(state) => {
+            if payload.login.eq("admin") {
                 debug!("got state");
                 match state.config.is_admin_passwd(payload.passwd.as_str()) {
                     Ok(is_passwd) => {
@@ -116,11 +112,24 @@ pub async fn login_handler(
                         HttpResponse::InternalServerError().body(())
                     }
                 }
+            } else if state.db_conn.is_some() {
+                if state.db_initialized {
+                    error!("user flow has not yet been implemented");
+                    HttpResponse::NotImplemented().body(())
+                } else {
+                    error!("user flow has not yet been implemented");
+                    HttpResponse::NotImplemented().body(())
+                }
+            } else {
+                error!("no database connection - user needs to login as admin");
+                HttpResponse::SeeOther()
+                    .insert_header(("Location", "/admin_login"))
+                    .body(())
             }
-            Err(_e) => HttpResponse::InternalServerError().body(()),
         }
-    } else {
-        id.forget();
-        HttpResponse::InternalServerError().body(())
+        Err(e) => {
+            error!("failed to access state: {:?}", e);
+            HttpResponse::InternalServerError().body(())
+        }
     }
 }

@@ -2,19 +2,20 @@
 <div class="entry">
   <h2>Mail Kraken - Dashboard</h2>
   <div class="dash_cntr">
+    <script src="/assets/js/admin_dash.js"></script>
     <h3>Change Admin Password</h3>
     <table>
-      <form action="/api/v1/admin/passwd" method="post">
+      <form method="post">
         <tr>
           <td>Admin Password:</td>
-          <td><input type="password" name="passwd" /></td>
+          <td><input id="passwd-new"type="password" name="passwd" /></td>
         <tr/>
         <tr>
           <td>Repeat Admin Password:</td>
-          <td><input type="password" name="repeat_passwd" /></td>
+          <td><input id="passwd-repeat" type="password" name="repeat_passwd" /></td>
         <tr/>
         <tr>
-          <td colspan="2"><button type="submit">Submit</button></td>
+          <td colspan="2"><button id="passwd-submit" type="submit">Submit</button></td>
         <tr/>
       </form>
     </table>
@@ -22,13 +23,13 @@
   <div class="dash_cntr">
     <h3>Database URL</h3>
     <table>
-      <form action="/api/v1/admin/db_url" method="post">
+      <form  method="post">
         <tr>
           <td>Database Url:</td>
-          <td><input type="url" name="db_ulr" value="{{db_url}}"/></td>
+          <td><input id="db-url" type="url" name="db_ulr" value="{{db_url}}"/></td>
         <tr/>
         <tr>
-          <td colspan="2"><button type="submit">Login</button></td>
+          <td colspan="2"><button id="db-url-submit" type="submit">Login</button></td>
         <tr/>
       </form>
     </table>

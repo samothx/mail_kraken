@@ -51,6 +51,7 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
     let shared_data = StateData::new(SharedData {
         db_conn: pool,
         config,
+        db_initialized: false,
     });
 
     let private_key = rand::thread_rng().gen::<[u8; 32]>();

@@ -9,7 +9,7 @@ use mysql_async::Pool;
 use serde::Deserialize;
 
 #[derive(Template)]
-#[template(path = "admin_dashboard.html")]
+#[template(path = "admin_dash.html")]
 struct AdminDashboard {
     db_url: String,
 }
