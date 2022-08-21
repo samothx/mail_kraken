@@ -80,7 +80,7 @@ pub struct Payload {
 pub async fn login_handler(
     req: HttpRequest,
     state: web::Data<StateData>,
-    payload: web::Json<Payload>,
+    payload: web::Form<Payload>,
     id: Identity,
 ) -> HttpResponse {
     debug!("login_handler: query: {:?}", req);
