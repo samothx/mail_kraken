@@ -1,26 +1,29 @@
 function login() {
 	console.log("login() entered" );
-	const login_data = {
+	const data = {
 		login: $('#login-name').val(),
 		passwd: $('#passwd').val()
 	};
 
-	console.log(`posting login request with data: ${login_data}` );
+	console.log(`posting login request with data: ${data}` );
 
-	axios.post('/api/v1/login', 
-		login_data ,{
+	const request = {
+		method: 'POST',
 		headers: {
-			'Content-Type': 'application/json'
-		}
-	})
-        .then(function (response) {
+			'Accept': 'application/json',
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify(data)
+	}
+
+	fetch('/api/v1/login', request).then(function (response) {
 		console.log("request successful")
-            if (login === 'admin') {
-                window.location.href = '/admin_dash';
-            } else {
-                window.location.href = '/dash';
-            }
-        }).catch(function (error) {
-            console.log(error);
-    })
+		if (login === 'admin') {
+			window.location.href = '/admin_dash';
+		} else {
+			window.location.href = '/dash';
+		}
+	}).catch(function (error) {
+		console.log(error);
+	})
 }
