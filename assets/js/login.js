@@ -6,7 +6,7 @@ $(document).ready(function () {
 });
 
 function login() {
-	return Promise::new (function (resolve) {
+	return new Promise (function (resolve) {
 			console.log("login() entered" );
 			const data = {
 				login: $('#login-name').val(),
