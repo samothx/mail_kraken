@@ -86,11 +86,16 @@ pub async fn login_handler(
     debug!("login_handler: query: {:?}", req);
     // debug!("login_handler: payload: {:?}", payload);
     // debug_cookies("login_handler:", &req);
-    debug!("login_handler: called with id: {:?}", id.identity());
+    debug!(
+        "login_handler: called with id: {:?}, login: {}",
+        id.identity(),
+        payload.login
+    );
 
     if payload.login.eq("admin") {
         match state.get_state() {
             Ok(state) => {
+                debug!("got state");
                 match state.config.is_admin_passwd(payload.passwd.as_str()) {
                     Ok(is_passwd) => {
                         if is_passwd {
@@ -99,8 +104,7 @@ pub async fn login_handler(
                                 "login_handler: login successful, id: {}",
                                 id.identity().unwrap_or_else(|| "unknown".to_owned())
                             );
-                            HttpResponse::Ok()
-                                .body(())
+                            HttpResponse::Ok().body(())
                         } else {
                             id.forget();
                             warn!("login failure:");
@@ -113,7 +117,7 @@ pub async fn login_handler(
                     }
                 }
             }
-            Err(e) => HttpResponse::InternalServerError().body(())
+            Err(e) => HttpResponse::InternalServerError().body(()),
         }
     } else {
         id.forget();

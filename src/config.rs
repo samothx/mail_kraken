@@ -35,6 +35,7 @@ impl Config {
     }
 
     pub fn is_admin_passwd(&self, passwd: &str) -> Result<bool> {
+        debug!("is_admin_passwd:");
         debug!(
             "is_admin_passwd: comparing hashes: \n{}\n{}",
             self.admin_pw_hash,

@@ -24,15 +24,17 @@ async function login() {
 	}
 
 	fetch('/api/v1/login', request).then(function (response) {
-		console.log("request successful")
+		console.log("request successful");
+
 		if (data.login === 'admin') {
 			window.location.href = '/admin_dash';
 		} else {
 			window.location.href = '/dash';
 		}
+
 	}).catch(function (error) {
 		console.log(error);
-	})
+	});
 
 	console.log("fetch done");
 }
