@@ -61,12 +61,17 @@ pub fn make_salt() -> String {
 }
 
 pub fn hash_passwd(passwd: &str, salt: &str) -> Result<String> {
+    debug!("hash_passwd: called");
     let salt_arr =
         decode(salt).with_context(|| format!("failed to decode base64 salt string {}", salt))?;
+    debug!("hash_passwd: base64 decoded");
     assert_eq!(salt_arr.len(), SALT_LEN);
     let mut salt_cp = [0; SALT_LEN];
     salt_cp.iter_mut().zip(salt_arr).for_each(|(dest, src)| {
         *dest = src;
     });
-    Ok(hash_with_salt(passwd, DEFAULT_COST, salt_cp)?.format_for_version(Version::TwoA))
+    debug!("hash_passwd: hash array created");
+    let tmp = hash_with_salt(passwd, DEFAULT_COST, salt_cp)?.format_for_version(Version::TwoA);
+    debug!("hash_passwd: hash_with_salt created");
+    Ok(tmp)
 }
