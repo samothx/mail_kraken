@@ -18,7 +18,7 @@ async function login() {
 
 	fetch('/api/v1/login', request).then(function (response) {
 		console.log("request successful")
-		if (login === 'admin') {
+		if (data.login === 'admin') {
 			window.location.href = '/admin_dash';
 		} else {
 			window.location.href = '/dash';
