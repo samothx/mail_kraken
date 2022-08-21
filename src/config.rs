@@ -8,7 +8,7 @@ use nix::unistd::getuid;
 use serde::{Deserialize, Serialize};
 use std::fs;
 
-const BCRYPT_COST: u32 = 12;
+const BCRYPT_COST: u32 = 8;
 
 pub const CONFIG_FILE: &str = "/etc/mail_kraken.cfg";
 

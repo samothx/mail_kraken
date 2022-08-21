@@ -1,5 +1,4 @@
-use anyhow::{anyhow, Context, Result};
-use base64::{decode, encode};
+use anyhow::{anyhow, Result};
 use nix::errno::errno;
 
 pub const SWITCH2USER: &str = "nobody"; // "mail_kraken";
@@ -7,13 +6,11 @@ const ROOT_UID: uid_t = 0;
 const ROOT_GID: gid_t = 0;
 
 use crate::{strerror, UserInfo};
-use bcrypt::{hash_with_salt, Version, DEFAULT_COST};
 use log::debug;
 use nix::{
     libc::{gid_t, setresgid, setresuid, uid_t},
     unistd::{getgid, getuid},
 };
-use rand::{thread_rng, Rng};
 
 pub fn switch_to_user(root: bool) -> Result<()> {
     let (username, dest_uid, dest_gid) = if root {
