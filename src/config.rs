@@ -2,11 +2,13 @@ use crate::libc_util::{chmod, chown};
 use crate::util::SWITCH2USER;
 use crate::{switch_to_user, UserInfo};
 use anyhow::{Context, Result};
-use bcrypt::{hash, verify, DEFAULT_COST};
+use bcrypt::{hash, verify};
 use log::debug;
 use nix::unistd::getuid;
 use serde::{Deserialize, Serialize};
 use std::fs;
+
+const BCRYPT_COST: u32 = 12;
 
 pub const CONFIG_FILE: &str = "/etc/mail_kraken.cfg";
 
@@ -21,7 +23,7 @@ impl Config {
     pub fn new(db_url: Option<String>, admin_pw: String, bind_to: String) -> Result<Config> {
         Ok(Config {
             db_url,
-            admin_pw_hash: hash(admin_pw.as_str(), DEFAULT_COST)?,
+            admin_pw_hash: hash(admin_pw.as_str(), BCRYPT_COST)?,
             bind_to,
         })
     }

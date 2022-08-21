@@ -2,7 +2,6 @@ use anyhow::{anyhow, Context, Result};
 use base64::{decode, encode};
 use nix::errno::errno;
 
-const SALT_LEN: usize = 16;
 pub const SWITCH2USER: &str = "nobody"; // "mail_kraken";
 const ROOT_UID: uid_t = 0;
 const ROOT_GID: gid_t = 0;
