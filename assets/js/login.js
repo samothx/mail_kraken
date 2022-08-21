@@ -1,4 +1,5 @@
 function login() {
+	console.log("login() entered" );
 	const login_data = {
 		login: $('#login-name').val(),
 		passwd: $('#passwd').val()
