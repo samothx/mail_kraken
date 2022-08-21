@@ -31,6 +31,7 @@ async function login() {
 		} else {
 			window.location.href = '/dash';
 		}
+		response.text().then(function (text) { console.log(`response body read: ${text}`) })
 
 	}).catch(function (error) {
 		console.log(error);
