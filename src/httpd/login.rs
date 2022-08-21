@@ -117,7 +117,7 @@ pub async fn login_handler(
                     }
                 }
             }
-            Err(e) => HttpResponse::InternalServerError().body(()),
+            Err(_e) => HttpResponse::InternalServerError().body(()),
         }
     } else {
         id.forget();

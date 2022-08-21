@@ -32,8 +32,9 @@ function login() {
 				} else {
 					window.location.href = '/dash';
 				}
-				response.text().then(function() {
-					resolve()
+				response.text().then(function(text) {
+					console.log(`body: ${text}`);
+					resolve();
 				});
 			}).catch(function (error) {
 				console.log(error);
