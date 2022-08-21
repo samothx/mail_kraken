@@ -1,7 +1,18 @@
 function login() {
-    const login = $('#login-name').val();
-    axios.post('/api/v1/login', { name: login, passwd: $('#passwd').val() })
+	const login_data = {
+		login: $('#login-name').val(),
+		passwd: $('#passwd').val()
+	};
+
+	console.log("posting login request with data: ${login_data}" );
+	axios.post('/api/v1/login', 
+		login_data ,{
+		headers: {
+			'Content-Type': 'application/json'
+		}
+	})
         .then(function (response) {
+		console.log("request successful")
             if (login === 'admin') {
                 window.location.href = '/admin_dash';
             } else {

@@ -1,19 +1,20 @@
 {% include "header.html" %}
+<script src="js/login.js"></script>
 <div class="entry">
-    <h2>Mail Kraken - Admin Login</h2>
+    <h2>Mail Kraken - User Login</h2>
     <div class="login">
         <table>
-            <form action="/api/v1/login" method="post">
+            <form>
                 <tr>
                     <td>Login Name:</td>
-                    <td><input type="text" name="login-name" value="admin"/></td>
+                    <td><input id="login-name" type="email" name="login-name" /></td>
                 <tr/>
                 <tr>
                     <td>Password:</td>
-                    <td><input type="password" name="passwd" /></td>
+                    <td><input id="passwd" type="password" name="passwd" /></td>
                 <tr/>
                 <tr>
-                    <td colspan="2"><button type="submit">Login</button></td>
+                    <td colspan="2"><button id="btn_login" type="submit" onclick="login();">Login</button></td>
                 <tr/>
             </form>
         </table>

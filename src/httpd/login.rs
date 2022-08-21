@@ -59,7 +59,6 @@ pub async fn login_form(state: web::Data<StateData>) -> HttpResponse {
 
 #[derive(Deserialize, Debug)]
 pub struct Payload {
-    #[serde(rename = "login-name")]
     name: String,
     passwd: String,
 }
@@ -68,13 +67,14 @@ pub struct Payload {
 pub async fn login_handler(
     req: HttpRequest,
     state: web::Data<StateData>,
-    payload: web::Form<Payload>,
+    // payload: web::Form<Payload>,
     id: Identity,
 ) -> HttpResponse {
-    debug!("login_handler: query: {:?}", req.query_string(),);
-    debug!("login_handler: payload: {:?}", payload);
+    debug!("login_handler: query: {:?}", req);
+    // debug!("login_handler: payload: {:?}", payload);
     // debug_cookies("login_handler:", &req);
     debug!("login_handler: called with id: {:?}", id.identity());
+    /*
     if payload.name.eq("admin") {
         match state.get_state() {
             Ok(state) => {
@@ -118,4 +118,6 @@ pub async fn login_handler(
             "not implemented: please login as admin with password".to_owned(),
         )
     }
+    */ 
+    HttpResponse::Ok().body(())
 }
