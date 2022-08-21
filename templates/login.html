@@ -1,9 +1,11 @@
 {% include "header.html" %}
 <script>
-    document.getElementById("btn_login").onclick = async (e) => {
-        e.preventDefault();
-        await login();
-    };
+    $(document).ready(function () {
+        $("#btn_login").click(async (e) => {
+            e.preventDefault();
+            await login();
+        });
+    });
 
     async function login() {
         console.log("login() entered" );
