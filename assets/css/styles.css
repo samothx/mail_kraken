@@ -17,3 +17,8 @@
     display: block;
     height: auto;
 }
+
+.error_message {
+    background-color: coral;
+    border-style: groove;
+}
