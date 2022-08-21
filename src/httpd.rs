@@ -65,7 +65,7 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
                     .secure(false),
             ))
             .route("/", web::get().to(HttpResponse::Ok))
-            .service(ActixFiles::new("/assets", ".").show_files_listing())
+            .service(ActixFiles::new("/assets", "."))
             .service(admin_login_form)
             .service(admin_passwd)
             .service(admin_db_url)
