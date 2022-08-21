@@ -32,7 +32,7 @@ function login() {
 				} else {
 					window.location.href = '/dash';
 				}
-				response.text().then(function () {
+				response.text().then(function() {
 					resolve()
 				});
 			}).catch(function (error) {
