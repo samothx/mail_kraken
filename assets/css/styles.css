@@ -9,9 +9,11 @@
 .err_invisible {
     visibility: hidden;
     display: none;
+    height: 0px;
 }
 
 .err_visible {
     visibility: visible;
     display: block;
+    height: auto;
 }

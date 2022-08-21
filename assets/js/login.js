@@ -38,7 +38,8 @@ function login() {
 					});
 				} else {
 					$(#err_msg).innerText = response.statusText;
-					$(#err_cntr).show()
+					$(#err_cntr).removeClass("err_invisible")
+					$(#err_cntr).addClass("err_visible")
 				}
 			}).catch(function (error) {
 				console.log(error);
