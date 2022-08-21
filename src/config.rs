@@ -1,7 +1,8 @@
 use crate::libc_util::{chmod, chown};
-use crate::util::{hash_passwd, make_salt, SWITCH2USER};
+use crate::util::SWITCH2USER;
 use crate::{switch_to_user, UserInfo};
 use anyhow::{Context, Result};
+use bcrypt::{hash, verify, DEFAULT_COST};
 use log::debug;
 use nix::unistd::getuid;
 use serde::{Deserialize, Serialize};
@@ -13,17 +14,14 @@ pub const CONFIG_FILE: &str = "/etc/mail_kraken.cfg";
 pub struct Config {
     db_url: Option<String>,
     admin_pw_hash: String,
-    admin_pw_salt: String,
     bind_to: String,
 }
 
 impl Config {
     pub fn new(db_url: Option<String>, admin_pw: String, bind_to: String) -> Result<Config> {
-        let admin_pw_salt = make_salt();
         Ok(Config {
             db_url,
-            admin_pw_hash: hash_passwd(admin_pw.as_str(), admin_pw_salt.as_str())?,
-            admin_pw_salt,
+            admin_pw_hash: hash(admin_pw.as_str(), DEFAULT_COST)?,
             bind_to,
         })
     }
@@ -36,12 +34,7 @@ impl Config {
 
     pub fn is_admin_passwd(&self, passwd: &str) -> Result<bool> {
         debug!("is_admin_passwd:");
-        debug!(
-            "is_admin_passwd: comparing hashes: \n{}\n{}",
-            self.admin_pw_hash,
-            hash_passwd(passwd, &self.admin_pw_salt).expect("failed to hash password")
-        );
-        Ok(hash_passwd(passwd, &self.admin_pw_salt)?.eq(&self.admin_pw_hash))
+        Ok(verify(passwd, &self.admin_pw_hash)?)
     }
 
     pub fn get_db_url(&self) -> Option<&String> {
