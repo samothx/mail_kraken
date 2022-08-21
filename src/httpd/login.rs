@@ -43,14 +43,14 @@ pub async fn login_form(state: web::Data<StateData>) -> HttpResponse {
             debug!("login_form: for admin: {}", state.db_conn.is_none());
             let template = if state.db_conn.is_some() {
                 let tmpl = LoginTemplate {
-                    name_type: "text",
-                    default_name: "admin",
+                    name_type: "email",
+                    default_name: "",
                 };
                 tmpl.render()
             } else {
                 let tmpl = LoginTemplate {
-                    name_type: "email",
-                    default_name: "",
+                    name_type: "text",
+                    default_name: "admin",
                 };
                 tmpl.render()
             };
