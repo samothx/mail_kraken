@@ -72,7 +72,7 @@ pub async fn login_form(state: web::Data<StateData>) -> HttpResponse {
 
 #[derive(Deserialize, Debug)]
 pub struct Payload {
-    name: String,
+    login: String,
     passwd: String,
 }
 
@@ -88,7 +88,7 @@ pub async fn login_handler(
     // debug_cookies("login_handler:", &req);
     debug!("login_handler: called with id: {:?}", id.identity());
 
-    if payload.name.eq("admin") {
+    if payload.login.eq("admin") {
         match state.get_state() {
             Ok(state) => {
                 match state.config.is_admin_passwd(payload.passwd.as_str()) {
