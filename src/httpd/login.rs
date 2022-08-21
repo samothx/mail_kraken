@@ -104,7 +104,7 @@ pub async fn login_handler(
                                 "login_handler: login successful, id: {}",
                                 id.identity().unwrap_or_else(|| "unknown".to_owned())
                             );
-                            HttpResponse::Ok().body("empty")
+                            HttpResponse::Ok().body(())
                         } else {
                             id.forget();
                             warn!("login failure:");
