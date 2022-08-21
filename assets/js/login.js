@@ -1,3 +1,10 @@
+$(document).ready(function () {
+	$("#btn_login").click(async (e) => {
+		e.preventDefault();
+		await login();
+	});
+});
+
 async function login() {
 	console.log("login() entered" );
 	const data = {
