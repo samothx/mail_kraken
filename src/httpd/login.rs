@@ -9,16 +9,21 @@ use serde::Deserialize;
 
 #[derive(Template)]
 #[template(path = "login.html")]
-struct LoginTemplate {}
+struct LoginTemplate {
+    name_type: String,
+}
 
-#[derive(Template)]
+/*#[derive(Template)]
 #[template(path = "admin_login.html")]
 struct AdminLoginTemplate {}
+*/
 
 #[get("/admin_login")]
 pub async fn admin_login_form() -> HttpResponse {
     debug!("admin_login_form: ");
-    let template = LoginTemplate {};
+    let template = LoginTemplate {
+        name_type: "text".to_owned(),
+    };
 
     match template.render() {
         Ok(res) => HttpResponse::Ok()
@@ -35,10 +40,14 @@ pub async fn login_form(state: web::Data<StateData>) -> HttpResponse {
         Ok(state) => {
             debug!("login_form: for admin: {}", state.db_conn.is_none());
             let template = if state.db_conn.is_some() {
-                let tmpl = LoginTemplate {};
+                let tmpl = LoginTemplate {
+                    name_type: "email".to_owned(),
+                };
                 tmpl.render()
             } else {
-                let tmpl = AdminLoginTemplate {};
+                let tmpl = LoginTemplate {
+                    name_type: "text".to_owned(),
+                };
                 tmpl.render()
             };
 
@@ -59,7 +68,6 @@ pub async fn login_form(state: web::Data<StateData>) -> HttpResponse {
 
 #[derive(Deserialize, Debug)]
 pub struct Payload {
-    #[serde(rename = "login-name")]
     name: String,
     passwd: String,
 }
@@ -71,7 +79,7 @@ pub async fn login_handler(
     payload: web::Form<Payload>,
     id: Identity,
 ) -> HttpResponse {
-    debug!("login_handler: query: {:?}", req.query_string(),);
+    debug!("login_handler: query: {:?}", req.uri());
     debug!("login_handler: payload: {:?}", payload);
     // debug_cookies("login_handler:", &req);
     debug!("login_handler: called with id: {:?}", id.identity());

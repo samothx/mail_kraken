@@ -3,23 +3,11 @@
 <div class="entry">
     <h2>Mail Kraken - User Login</h2>
     <div class="login">
-<!--
-$.ajax({
-   url: '/api/vi/login',
-   type: 'post',
-   data: {name:'yogesh',salary: 35000,email: 'yogesh@makitweb.com'},
-   success: function(response){
-
-   }
-   fa
-});
--->
-
         <table>
             <form>
                 <tr>
                     <td>Login Name:</td>
-                    <td><input id="login-name" type="email" name="login-name" /></td>
+                    <td><input id="login-name" type="{{name_type}}" name="login-name" /></td>
                 <tr/>
                 <tr>
                     <td>Password:</td>
