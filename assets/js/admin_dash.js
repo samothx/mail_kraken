@@ -15,9 +15,16 @@ function submit_admin_passwd() {
     return new Promise (function (resolve) {
             console.log("submit_admin_passwd() entered" );
             const data = {
-                passwd: $('#passwd-new').val(),
-                passwd_repeat: $('#passwd-repeat').val()
+                passwd: $('#passwd-curr').val(),
+                passwd_new: $('#passwd-new').val()
             };
+            const passwd_repeat = $('#passwd-repeat').val();
+            if (data.passwd_new !== passwd_repeat) {
+                $('#err_msg').innerText = 'The new password and the repeat new password fields contain different paswords';
+                $('#err_cntr').show()
+                resolve()
+                return
+            }
 
             // console.log(`posting change-pawwsdw request with data: ${data}` );
 
@@ -37,12 +44,12 @@ function submit_admin_passwd() {
                         resolve('/admin_dash');
                     });
                 } else {
-                    $(#err_msg).innerText = response.statusText;
-                    $(#err_cntr).show()
+                    $('#err_msg').innerText = response.statusText;
+                    $('#err_cntr').show()
                 }
             }).catch(function (error) {
                 console.log(error);
-                resolve(`/admin_dash`)
+                resolve('/admin_dash')
             });
         }
     )
@@ -74,12 +81,12 @@ function submit_db_url() {
                         resolve('/admin_dash');
                     });
                 } else {
-                    $(#err_msg).innerText = response.statusText;
-                    $(#err_cntr).show()
+                    $('#err_msg').innerText = response.statusText;
+                    $('#err_cntr').show()
                 }
             }).catch(function (error) {
                 console.log(error);
-                resolve(`/admin_dash`)
+                resolve('/admin_dash')
             });
         }
     )
