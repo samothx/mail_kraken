@@ -9,8 +9,9 @@ use serde::Deserialize;
 
 #[derive(Template)]
 #[template(path = "login.html")]
-struct LoginTemplate {
-    name_type: String,
+struct LoginTemplate<'a> {
+    name_type: &'a str,
+    default_name: &'a str,
 }
 
 /*#[derive(Template)]
@@ -22,7 +23,8 @@ struct AdminLoginTemplate {}
 pub async fn admin_login_form() -> HttpResponse {
     debug!("admin_login_form: ");
     let template = LoginTemplate {
-        name_type: "text".to_owned(),
+        name_type: "text",
+        default_name: "admin",
     };
 
     match template.render() {
@@ -41,12 +43,14 @@ pub async fn login_form(state: web::Data<StateData>) -> HttpResponse {
             debug!("login_form: for admin: {}", state.db_conn.is_none());
             let template = if state.db_conn.is_some() {
                 let tmpl = LoginTemplate {
-                    name_type: "email".to_owned(),
+                    name_type: "text",
+                    default_name: "admin",
                 };
                 tmpl.render()
             } else {
                 let tmpl = LoginTemplate {
-                    name_type: "text".to_owned(),
+                    name_type: "email",
+                    default_name: "",
                 };
                 tmpl.render()
             };
