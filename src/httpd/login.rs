@@ -78,7 +78,7 @@ pub struct Payload {
 
 #[post("/api/v1/login")]
 pub async fn login_handler(
-    req: HttpRequest,
+    // req: HttpRequest,
     state: web::Data<StateData>,
     payload: web::Json<Payload>,
     id: Identity,

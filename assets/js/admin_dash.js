@@ -1,11 +1,11 @@
 $(document).ready(function () {
     $("#passwd-submit").click(async (e) => {
         e.preventDefault();
-        window.location = await submit_admin_passwd();
+        await submit_admin_passwd();
     });
     $("#db-url-submit").click(async (e) => {
         e.preventDefault();
-        window.location = await submit_db_url();
+        await submit_db_url();
     });
 
 });
@@ -31,11 +31,15 @@ function submit_admin_passwd() {
             }
 
             fetch('/api/v1/passwd', request).then(function (response) {
-                console.log(`request successful: ${response.status}`);
-                response.text().then(function(text) {
-                    // console.log(`body: ${text}`);
-                    resolve('/admin_dash');
-                });
+                if (response.ok) {
+                    response.text().then(function (text) {
+                        // console.log(`body: ${text}`);
+                        resolve('/admin_dash');
+                    });
+                } else {
+                    $(#err_msg).innerText = response.statusText;
+                    $(#err_cntr).show()
+                }
             }).catch(function (error) {
                 console.log(error);
                 resolve(`/admin_dash`)
@@ -63,12 +67,16 @@ function submit_db_url() {
             }
 
             fetch('/api/v1/db_url', request).then(function (response) {
-                console.log(`request successful: ${response.status}`);
-
-                response.text().then(function(text) {
-                    // console.log(`body: ${text}`);
-                    resolve('/admin_dash');
-                });
+                console.log(`request returned status: ${response.status}`);
+                if (response.ok) {
+                    response.text().then(function (text) {
+                        // console.log(`body: ${text}`);
+                        resolve('/admin_dash');
+                    });
+                } else {
+                    $(#err_msg).innerText = response.statusText;
+                    $(#err_cntr).show()
+                }
             }).catch(function (error) {
                 console.log(error);
                 resolve(`/admin_dash`)
