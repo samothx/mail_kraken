@@ -80,7 +80,7 @@ pub struct Payload {
 pub async fn login_handler(
     req: HttpRequest,
     state: web::Data<StateData>,
-    payload: web::Form<Payload>,
+    payload: web::Json<Payload>,
     id: Identity,
 ) -> HttpResponse {
     debug!("login_handler: query: {:?}", req);
@@ -99,36 +99,24 @@ pub async fn login_handler(
                                 "login_handler: login successful, id: {}",
                                 id.identity().unwrap_or_else(|| "unknown".to_owned())
                             );
-                            HttpResponse::SeeOther()
-                                .insert_header(("Location", "/admin_dash"))
-                                // .cookie(session.)
+                            HttpResponse::Ok()
                                 .body(())
                         } else {
                             id.forget();
-
                             warn!("login failure:");
-                            ErrorTemplate::to_response(
-                                StatusCode::UNAUTHORIZED,
-                                "please supply a valid password for admin".to_owned(),
-                            )
+                            HttpResponse::Unauthorized().body(())
                         }
                     }
                     Err(e) => {
                         error!("failed to check admin password: {:?}", e);
-                        ErrorTemplate::to_response(
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            "failed to check admin password".to_owned(),
-                        )
+                        HttpResponse::InternalServerError().body(())
                     }
                 }
             }
-            Err(e) => ErrorTemplate::to_response(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+            Err(e) => HttpResponse::InternalServerError().body(())
         }
     } else {
         id.forget();
-        ErrorTemplate::to_response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "not implemented: please login as admin with password".to_owned(),
-        )
+        HttpResponse::InternalServerError().body(())
     }
 }

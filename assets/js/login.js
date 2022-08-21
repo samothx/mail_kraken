@@ -1,4 +1,4 @@
-function login() {
+async function login() {
 	console.log("login() entered" );
 	const data = {
 		login: $('#login-name').val(),
@@ -26,4 +26,6 @@ function login() {
 	}).catch(function (error) {
 		console.log(error);
 	})
+
+	console.log("fetch done");
 }

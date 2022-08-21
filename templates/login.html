@@ -14,7 +14,7 @@
                     <td><input id="passwd" type="password" name="passwd" /></td>
                 <tr/>
                 <tr>
-                    <td colspan="2"><button id="btn_login" type="submit" onclick="login();">Login</button></td>
+			<td colspan="2"><button id="btn_login" type="submit" onclick="async () => { await login(); }">Login</button></td>
                 <tr/>
             </form>
         </table>
