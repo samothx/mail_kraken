@@ -1,7 +1,7 @@
 $(document).ready(function () {
 	$("#btn_login").click(async (e) => {
 		e.preventDefault();
-		await login();
+		window.location = await login();
 	});
 });
 
@@ -27,18 +27,17 @@ function login() {
 			fetch('/api/v1/login', request).then(function (response) {
 				console.log(`request successful: ${response.status}`);
 
-				if (data.login === 'admin') {
-					window.location.href = '/admin_dash';
-				} else {
-					window.location.href = '/dash';
-				}
 				response.text().then(function(text) {
 					console.log(`body: ${text}`);
-					resolve();
+					if (data.login === 'admin') {
+						resolve('/admin_dash');
+					} else {
+						resolve('/dash');
+					}
 				});
 			}).catch(function (error) {
 				console.log(error);
-				resolve()
+				resolve(`/login`)
 			});
 	}
 )
