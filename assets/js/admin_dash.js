@@ -20,8 +20,9 @@ function submit_admin_passwd() {
             };
             const passwd_repeat = $('#passwd-repeat').val();
             if (data.passwd_new !== passwd_repeat) {
-                $('#err_msg').innerText = 'The new password and the repeat new password fields contain different paswords';
-                $('#err_cntr').show()
+                $('#error-cntr').removeClass('err_invisible');
+                $('#error-cntr').addClass('err_visible');
+                $('#error-msg').text('The new password and the repeat new password fields contain different paswords');
                 resolve()
                 return
             }
@@ -44,8 +45,10 @@ function submit_admin_passwd() {
                         resolve('/admin_dash');
                     });
                 } else {
-                    $('#err_msg').innerText = response.statusText;
-                    $('#err_cntr').show()
+                    $('#error-cntr').removeClass('err_invisible');
+                    $('#error-cntr').addClass('err_visible');
+                    $('#error-msg').text(response.statusText);
+                    resolve()
                 }
             }).catch(function (error) {
                 console.log(error);

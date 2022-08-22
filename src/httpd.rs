@@ -9,6 +9,7 @@ use actix_identity::{CookieIdentityPolicy, IdentityService};
 
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 
+use actix_web::middleware::Logger;
 use log::{debug, error};
 use std::net::SocketAddr;
 
@@ -60,6 +61,7 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
         let data = shared_data.clone();
         App::new()
             .app_data(web::Data::new(data))
+            .wrap(Logger::default())
             .wrap(IdentityService::new(
                 CookieIdentityPolicy::new(&private_key)
                     .name("mail-kraken")

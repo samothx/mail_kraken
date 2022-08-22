@@ -37,9 +37,10 @@ function login() {
 						resolve();
 					});
 				} else {
-					$(#err_msg).innerText = response.statusText;
-					$(#err_cntr).removeClass("err_invisible")
-					$(#err_cntr).addClass("err_visible")
+					$('#error-cntr').removeClass('err_invisible');
+					$('#error-cntr').addClass('err_visible');
+					$('#error-msg').text(response.statusText);
+					resolve()
 				}
 			}).catch(function (error) {
 				console.log(error);

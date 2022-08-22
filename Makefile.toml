@@ -58,3 +58,8 @@ script= '''
 #!/bin/env bash
 
 '''
+
+[tasks.watch]
+command = "sudo"
+args = [ "target/debug/mail_kraken", "-l", "debug" ,"serve" ]
+watch = true
