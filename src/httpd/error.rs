@@ -88,11 +88,17 @@ pub enum ApiError {
     Internal(Option<String>),
     Redirect(String),
     NotImpl(),
+    BadRequest(Option<String>),
 }
 
 impl Debug for ApiError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            ApiError::BadRequest(msg) => write!(
+                f,
+                "error: bad request, {}",
+                msg.as_ref().unwrap_or(&"".to_owned())
+            ),
             ApiError::NotImpl() => write!(f, "error: not implemented"),
             ApiError::Passwd(msg) => write!(f, "error: password authentification, {}", msg),
             ApiError::Auth() => write!(f, "error: unauthorized"),
@@ -116,6 +122,11 @@ impl From<anyhow::Error> for SiteError {
 impl Display for ApiError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            ApiError::BadRequest(msg) => write!(
+                f,
+                "error: bad request, {}",
+                msg.as_ref().unwrap_or(&"".to_owned())
+            ),
             ApiError::NotImpl() => write!(f, "error: not implemented"),
             ApiError::Passwd(msg) => write!(f, "error: password verificaion,  {}", msg),
             ApiError::Auth() => write!(f, "error: unauthorized",),
@@ -134,6 +145,7 @@ impl Display for ApiError {
 impl actix_web::ResponseError for ApiError {
     fn status_code(&self) -> StatusCode {
         match self {
+            ApiError::BadRequest(_) => StatusCode::BAD_REQUEST,
             ApiError::NotImpl() => StatusCode::NOT_IMPLEMENTED,
             ApiError::Passwd(_) => StatusCode::UNAUTHORIZED,
             ApiError::Auth() => StatusCode::UNAUTHORIZED,
@@ -144,6 +156,13 @@ impl actix_web::ResponseError for ApiError {
 
     fn error_response(&self) -> HttpResponse<BoxBody> {
         match self {
+            ApiError::BadRequest(msg) => {
+                if let Some(msg) = msg {
+                    HttpResponse::BadRequest().body(msg.to_owned())
+                } else {
+                    HttpResponse::BadRequest().body(())
+                }
+            }
             ApiError::NotImpl() => HttpResponse::NotImplemented().body(()),
             ApiError::Passwd(msg) => HttpResponse::Unauthorized().body(msg.to_owned()),
             ApiError::Auth() => HttpResponse::Unauthorized().body(()),
