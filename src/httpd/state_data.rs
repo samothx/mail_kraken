@@ -6,7 +6,6 @@ use std::sync::{Arc, LockResult, RwLock, RwLockReadGuard, RwLockWriteGuard};
 pub struct SharedData {
     pub config: Config,
     pub db_conn: Option<Pool>,
-    pub db_initialized: bool,
 }
 
 #[derive(Clone)]

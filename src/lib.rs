@@ -19,6 +19,8 @@ use crate::httpd::serve;
 use crate::libc_util::{strerror, UserInfo};
 use crate::util::switch_to_user;
 
+const BCRYPT_COST: u32 = 8;
+
 pub async fn run(cmd_args: CmdArgs) -> Result<()> {
     // TODO: probably should not do this as su
     Logger::set_default_level(cmd_args.log_level);

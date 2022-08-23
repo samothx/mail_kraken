@@ -1,10 +1,10 @@
-use crate::httpd::error::ErrorTemplate;
+use crate::httpd::error::{ApiError, ApiResult, SiteError, SiteResult};
 use crate::httpd::state_data::StateData;
 use crate::httpd::ADMIN_NAME;
 use actix_identity::Identity;
-use actix_web::{get, http::StatusCode, post, web, HttpRequest, HttpResponse};
+use actix_web::{get, post, web, HttpResponse};
 use askama::Template;
-use log::{debug, error, warn};
+use log::{debug, warn};
 use serde::Deserialize;
 
 #[derive(Template)]
@@ -20,7 +20,7 @@ struct AdminLoginTemplate {}
 */
 
 #[get("/admin_login")]
-pub async fn admin_login_form() -> HttpResponse {
+pub async fn admin_login_form() -> SiteResult {
     debug!("admin_login_form: ");
     let template = LoginTemplate {
         name_type: "text",
@@ -28,46 +28,42 @@ pub async fn admin_login_form() -> HttpResponse {
     };
 
     match template.render() {
-        Ok(res) => HttpResponse::Ok()
+        Ok(res) => Ok(HttpResponse::Ok()
             .content_type("text/html; charset=UTF-8")
-            .body(res),
-        Err(e) => ErrorTemplate::to_response(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+            .body(res)),
+        Err(e) => Err(SiteError::Internal(Some(e.to_string()))),
     }
 }
 
 #[get("/login")]
-pub async fn login_form(state: web::Data<StateData>) -> HttpResponse {
+pub async fn login_form(state: web::Data<StateData>) -> SiteResult {
     debug!("login_form: called");
-    match state.get_state() {
-        Ok(state) => {
-            debug!("login_form: for admin: {}", state.db_conn.is_none());
-            let template = if state.db_conn.is_some() {
-                let tmpl = LoginTemplate {
-                    name_type: "email",
-                    default_name: "",
-                };
-                tmpl.render()
-            } else {
-                let tmpl = LoginTemplate {
-                    name_type: "text",
-                    default_name: "admin",
-                };
-                tmpl.render()
-            };
+    let db_initialized = {
+        let state = state
+            .get_state()
+            .map_err(|e| SiteError::Internal(Some(e.to_string())))?;
+        state.db_conn.is_some()
+    };
 
-            match template {
-                Ok(res) => HttpResponse::Ok()
-                    .content_type("text/html; charset=UTF-8")
-                    .body(res),
-                Err(e) => {
-                    ErrorTemplate::to_response(StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-                }
-            }
+    debug!("login_form: for admin: {}", !db_initialized);
+    let template = if db_initialized {
+        LoginTemplate {
+            name_type: "email",
+            default_name: "",
         }
-        Err(e) => ErrorTemplate::to_response(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
-    }
+    } else {
+        LoginTemplate {
+            name_type: "text",
+            default_name: "admin",
+        }
+    };
 
-    // debug_cookies("login_form:", &req);
+    match template.render() {
+        Ok(res) => Ok(HttpResponse::Ok()
+            .content_type("text/html; charset=UTF-8")
+            .body(res)),
+        Err(e) => Err(SiteError::Internal(Some(e.to_string()))),
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -82,54 +78,41 @@ pub async fn login_handler(
     state: web::Data<StateData>,
     payload: web::Json<Payload>,
     id: Identity,
-) -> HttpResponse {
+) -> ApiResult {
     debug!(
         "login_handler: called with id: {:?}, login: {}",
         id.identity(),
         payload.login
     );
-    match state.get_state() {
-        Ok(state) => {
-            if payload.login.eq("admin") {
-                debug!("got state");
-                match state.config.is_admin_passwd(payload.passwd.as_str()) {
-                    Ok(is_passwd) => {
-                        if is_passwd {
-                            id.remember(ADMIN_NAME.to_owned());
-                            debug!(
-                                "login_handler: login successful, id: {}",
-                                id.identity().unwrap_or_else(|| "unknown".to_owned())
-                            );
-                            HttpResponse::Ok().body(())
-                        } else {
-                            id.forget();
-                            warn!("login failure:");
-                            HttpResponse::Unauthorized().body(())
-                        }
-                    }
-                    Err(e) => {
-                        error!("failed to check admin password: {:?}", e);
-                        HttpResponse::InternalServerError().body(())
-                    }
-                }
-            } else if state.db_conn.is_some() {
-                if state.db_initialized {
-                    error!("user flow has not yet been implemented");
-                    HttpResponse::NotImplemented().body(())
-                } else {
-                    error!("user flow has not yet been implemented");
-                    HttpResponse::NotImplemented().body(())
-                }
-            } else {
-                error!("no database connection - user needs to login as admin");
-                HttpResponse::SeeOther()
-                    .insert_header(("Location", "/admin_login"))
-                    .body(())
-            }
+
+    let pw_hash = {
+        let state = state
+            .get_state()
+            .map_err(|e| ApiError::Internal(Some(e.to_string())))?;
+        state.config.get_pw_hash()
+    };
+
+    if payload.login.eq("admin") {
+        let passwd_valid = tokio::task::spawn_blocking(move || {
+            bcrypt::verify(payload.passwd.as_str(), pw_hash.as_str())
+        })
+        .await
+        .map_err(|e| ApiError::Internal(Some(e.to_string())))?
+        .map_err(|e| ApiError::Internal(Some(e.to_string())))?;
+
+        if passwd_valid {
+            id.remember(ADMIN_NAME.to_owned());
+            debug!(
+                "login_handler: login successful, id: {}",
+                id.identity().unwrap_or_else(|| "unknown".to_owned())
+            );
+            Ok(HttpResponse::Ok().body(()))
+        } else {
+            id.forget();
+            warn!("login failure:");
+            Err(ApiError::Passwd("invalid password".to_string()))
         }
-        Err(e) => {
-            error!("failed to access state: {:?}", e);
-            HttpResponse::InternalServerError().body(())
-        }
+    } else {
+        Err(ApiError::NotImpl())
     }
 }

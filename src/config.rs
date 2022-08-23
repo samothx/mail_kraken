@@ -1,14 +1,12 @@
 use crate::libc_util::{chmod, chown};
 use crate::util::SWITCH2USER;
-use crate::{switch_to_user, UserInfo};
+use crate::{switch_to_user, UserInfo, BCRYPT_COST};
 use anyhow::{Context, Result};
-use bcrypt::{hash, verify};
+use bcrypt::hash;
 use log::debug;
 use nix::unistd::getuid;
 use serde::{Deserialize, Serialize};
 use std::fs;
-
-const BCRYPT_COST: u32 = 8;
 
 pub const CONFIG_FILE: &str = "/etc/mail_kraken.cfg";
 
@@ -34,9 +32,12 @@ impl Config {
         Ok(toml::from_str(cfg_str.as_str())?)
     }
 
-    pub fn is_admin_passwd(&self, passwd: &str) -> Result<bool> {
-        debug!("is_admin_passwd:");
-        Ok(verify(passwd, &self.admin_pw_hash)?)
+    pub fn set_pw_hash(&mut self, pw_hash: String) {
+        self.admin_pw_hash = pw_hash;
+    }
+
+    pub fn get_pw_hash(&self) -> String {
+        self.admin_pw_hash.clone()
     }
 
     pub fn get_db_url(&self) -> Option<&String> {

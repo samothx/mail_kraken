@@ -17,6 +17,7 @@ const ADMIN_NAME: &str = "admin";
 
 mod admin;
 mod error;
+// mod error_old;
 mod login;
 mod state_data;
 
@@ -29,7 +30,10 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
     let config = if let Some(config) = config {
         config
     } else {
-        Config::new(None, args.init_passwd, args.bind_to)?
+        let res =
+            tokio::task::spawn_blocking(move || Config::new(None, args.init_passwd, args.bind_to))
+                .await?;
+        res.with_context(|| "failed to create default config".to_owned())?
     };
 
     let pool = if let Some(db_url) = config.get_db_url() {
@@ -52,7 +56,6 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
     let shared_data = StateData::new(SharedData {
         db_conn: pool,
         config,
-        db_initialized: false,
     });
 
     let private_key = rand::thread_rng().gen::<[u8; 32]>();
