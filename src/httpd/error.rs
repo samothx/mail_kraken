@@ -86,7 +86,7 @@ pub enum ApiError {
     Passwd(String),
     Auth(),
     Internal(Option<String>),
-    Redirect(String),
+    // Redirect(String),
     NotImpl(),
     BadRequest(Option<String>),
 }
@@ -107,8 +107,7 @@ impl Debug for ApiError {
                 "error: internal, {}",
                 msg.as_ref().unwrap_or(&"".to_owned())
             ),
-
-            ApiError::Redirect(dest) => write!(f, "redirection to {}", dest),
+            // ApiError::Redirect(dest) => write!(f, "redirection to {}", dest),
         }
     }
 }
@@ -136,8 +135,7 @@ impl Display for ApiError {
                     "error: internal,  {}",
                     msg.as_ref().unwrap_or(&"".to_owned())
                 )
-            }
-            ApiError::Redirect(dest) => write!(f, "error: redirection to {}", dest),
+            } // ApiError::Redirect(dest) => write!(f, "error: redirection to {}", dest),
         }
     }
 }
@@ -150,7 +148,7 @@ impl actix_web::ResponseError for ApiError {
             ApiError::Passwd(_) => StatusCode::UNAUTHORIZED,
             ApiError::Auth() => StatusCode::UNAUTHORIZED,
             ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            ApiError::Redirect(_) => StatusCode::SEE_OTHER,
+            // ApiError::Redirect(_) => StatusCode::SEE_OTHER,
         }
     }
 
@@ -172,10 +170,10 @@ impl actix_web::ResponseError for ApiError {
                 } else {
                     HttpResponse::InternalServerError().body(())
                 }
-            }
-            ApiError::Redirect(location) => HttpResponse::SeeOther()
-                .insert_header(("Location", location.to_owned()))
-                .body(()),
+            } /*ApiError::Redirect(location) => HttpResponse::SeeOther()
+                 .insert_header(("Location", location.to_owned()))
+                 .body(()),
+              */
         }
     }
 }

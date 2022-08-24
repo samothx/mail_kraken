@@ -28,8 +28,6 @@ function submit_admin_passwd() {
                 return
             }
 
-            // console.log(`posting change-pawwsdw request with data: ${data}` );
-
             const request = {
                 method: 'POST',
                 headers: {
@@ -44,7 +42,7 @@ function submit_admin_passwd() {
                     response.text().then(function (text) {
                         $('#error-cntr').removeClass('err_visible');
                         $('#error-cntr').addClass('err_invisible');
-                        resolve('/admin_dash');
+                        resolve();
                     });
                 } else {
                     response.text().then(function (text) {
@@ -59,8 +57,10 @@ function submit_admin_passwd() {
                     })
                 }
             }).catch(function (error) {
-                console.log(error);
-                resolve('/admin_dash')
+                $('#error-cntr').removeClass('err_invisible');
+                $('#error-cntr').addClass('err_visible');
+                $('#error-msg').text(error);
+                resolve()
             });
         }
     )
@@ -84,20 +84,33 @@ function submit_db_url() {
                 body: JSON.stringify(data)
             }
 
-            fetch('/api/v1/db_url', request).then(function (response) {
+            fetch('/api/v1/admin/db_url', request).then(function (response) {
                 console.log(`request returned status: ${response.status}`);
                 if (response.ok) {
                     response.text().then(function (text) {
                         // console.log(`body: ${text}`);
-                        resolve('/admin_dash');
+                        $('#error-cntr').removeClass('err_visible');
+                        $('#error-cntr').addClass('err_invisible');
+                        resolve();
                     });
                 } else {
-                    $('#err_msg').innerText = response.statusText;
-                    $('#err_cntr').show()
+                    response.text().then(function (text) {
+                        $('#error-cntr').removeClass('err_invisible');
+                        $('#error-cntr').addClass('err_visible');
+                        if (text === "") {
+                            $('#error-msg').text(response.statusText);
+                        } else {
+                            $('#error-msg').text(text);
+                        }
+                        resolve()
+                    });
                 }
             }).catch(function (error) {
                 console.log(error);
-                resolve('/admin_dash')
+                $('#error-cntr').removeClass('err_invisible');
+                $('#error-cntr').addClass('err_visible');
+                $('#error-msg').text(error);
+                resolve()
             });
         }
     )

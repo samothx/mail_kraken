@@ -4,10 +4,12 @@ use crate::{switch_to_user, UserInfo, BCRYPT_COST};
 use anyhow::{Context, Result};
 use bcrypt::hash;
 use log::debug;
+use nix::libc::{S_IRGRP, S_IRUSR, S_IWGRP, S_IWUSR};
 use nix::unistd::getuid;
 use serde::{Deserialize, Serialize};
-use std::fs;
+use tokio::fs;
 
+// TODO: Ssave this somewhere else
 pub const CONFIG_FILE: &str = "/etc/mail_kraken.cfg";
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -26,9 +28,9 @@ impl Config {
         })
     }
 
-    pub fn from_file() -> Result<Config> {
+    pub async fn from_file() -> Result<Config> {
         debug!("attempting to read config from {}", CONFIG_FILE);
-        let cfg_str = fs::read_to_string(CONFIG_FILE)?;
+        let cfg_str = fs::read_to_string(CONFIG_FILE).await?;
         Ok(toml::from_str(cfg_str.as_str())?)
     }
 
@@ -52,7 +54,7 @@ impl Config {
         self.bind_to.as_str()
     }
 
-    pub fn save(&self) -> Result<()> {
+    pub async fn save(&self) -> Result<()> {
         let toml_str =
             toml::to_string(self).with_context(|| "failed to serialize config".to_owned())?;
 
@@ -63,7 +65,7 @@ impl Config {
             true
         };
 
-        let res = self.save_int(toml_str.as_str());
+        let res = self.save_int(toml_str.as_str()).await;
 
         if switchchback {
             switch_to_user(false)
@@ -72,13 +74,14 @@ impl Config {
         res
     }
 
-    fn save_int(&self, toml: &str) -> Result<()> {
+    async fn save_int(&self, toml: &str) -> Result<()> {
         fs::write(CONFIG_FILE, toml)
+            .await
             .with_context(|| format!("failed to write config to {}", CONFIG_FILE))?;
 
         let user_info = UserInfo::from_name(SWITCH2USER)?;
         chown(CONFIG_FILE, user_info.get_uid(), user_info.get_gid())?;
-        chmod(CONFIG_FILE, 0x660)?;
+        chmod(CONFIG_FILE, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)?;
         Ok(())
     }
 }

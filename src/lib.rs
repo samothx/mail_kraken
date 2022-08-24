@@ -10,6 +10,7 @@ mod doveadm;
 mod httpd;
 pub use cmd_args::CmdArgs;
 mod config;
+mod db;
 mod libc_util;
 mod util;
 
@@ -29,7 +30,7 @@ pub async fn run(cmd_args: CmdArgs) -> Result<()> {
 
     info!("initializing - cmd: {:?}", cmd_args.cmd);
 
-    let config = match Config::from_file() {
+    let config = match Config::from_file().await {
         Ok(config) => Some(config),
         Err(e) => {
             error!("failed to read config file: {}", e);

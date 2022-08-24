@@ -1,13 +1,13 @@
+use crate::db::init_db;
 use crate::httpd::admin::PasswdRes::ErrBadPasswd;
 use crate::httpd::error::{ApiError, ApiResult, SiteError, SiteResult};
 use crate::httpd::{StateData, ADMIN_NAME};
 use crate::BCRYPT_COST;
 use actix_identity::Identity;
-use actix_web::web::{Bytes, Json};
-use actix_web::{get, http::StatusCode, post, web, HttpMessage, HttpRequest, HttpResponse};
-use anyhow::Context;
+use actix_web::web::Json;
+use actix_web::{get, post, web, HttpResponse};
 use askama::Template;
-use log::{debug, info};
+use log::debug;
 use mysql_async::Pool;
 use serde::Deserialize;
 
@@ -26,7 +26,7 @@ pub struct PayloadDbUrl {
 pub async fn admin_db_url(
     id: Identity,
     state: web::Data<StateData>,
-    payload: web::Form<PayloadDbUrl>,
+    payload: web::Json<PayloadDbUrl>,
 ) -> ApiResult {
     debug!("admin_db_url: called with id: {:?}", id.identity());
     if id
@@ -35,32 +35,16 @@ pub async fn admin_db_url(
         .eq(ADMIN_NAME)
     {
         debug!("admin_db_url: payload: {:?}", payload);
-
-        match state.get_mut_state() {
-            Ok(mut state) => {
-                match Pool::from_url(payload.db_url.as_str()) {
-                    Ok(pool) => {
-                        state.config.set_db_url(payload.db_url.as_str());
-                        if let Some(db_conn) = state.db_conn.take() {
-                            let _ = db_conn.disconnect();
-                        }
-
-                        match state.config.save().with_context(|| "failed to save config") {
-                            Ok(_) => (),
-                            Err(e) => {
-                                return Err(ApiError::Internal(Some(e.to_string())));
-                            }
-                        }
-
-                        state.db_conn = Some(pool);
-                        // TODO: update & save config
-                        Ok(HttpResponse::Ok().body(()))
-                    }
-                    Err(e) => Err(ApiError::Internal(Some(e.to_string()))),
-                }
-            }
-            Err(e) => Err(ApiError::Internal(Some(e.to_string()))),
-        }
+        let pool = Pool::from_url(payload.db_url.as_str()).map_err(|e| {
+            ApiError::BadRequest(Some(format!("failed to connect to database: {}", e)))
+        })?;
+        init_db(pool).await?;
+        let mut state = state
+            .get_mut_state()
+            .map_err(|e| ApiError::Internal(Some(e.to_string())))?;
+        state.config.set_db_url(payload.db_url.as_str());
+        state.config.save().await?;
+        Ok(HttpResponse::Ok().body(()))
     } else {
         Err(ApiError::Auth())
     }
@@ -106,7 +90,7 @@ pub async fn admin_passwd(
                     if is_admin {
                         let mut pw_chars = payload.passwd_new.chars();
 
-                        if (payload.passwd_new.len() < 8) {
+                        if payload.passwd_new.len() < 8 {
                             ErrBadPasswd("new password is too short".to_owned())
                         } else if !pw_chars.clone().any(|ch| ch.is_uppercase()) {
                             ErrBadPasswd(
@@ -144,6 +128,7 @@ pub async fn admin_passwd(
                 state
                     .config
                     .save()
+                    .await
                     .map_err(|e| ApiError::Internal(Some(e.to_string())))?;
                 Ok(HttpResponse::Ok().body(()))
             }
