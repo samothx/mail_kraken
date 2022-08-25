@@ -18,9 +18,10 @@ pub async fn authenticate(user: &str, passwd: &str) -> Result<bool> {
     match output {
         Ok(output) => {
             debug!(
-                "authenticate: doveadm auth login failed: {:?}",
+                "authenticate: doveadm auth login status: {:?}",
                 output.status.code()
             );
+            /*
             output.stdout.lines().for_each(|line| {
                 debug!(
                     "authenticate: stdout: {}",
@@ -33,6 +34,7 @@ pub async fn authenticate(user: &str, passwd: &str) -> Result<bool> {
                     line.unwrap_or("error reading line".to_owned())
                 );
             });
+             */
             if let Some(line) = output.stdout.lines().next() {
                 match line {
                     Ok(line) => {
@@ -40,7 +42,7 @@ pub async fn authenticate(user: &str, passwd: &str) -> Result<bool> {
                             .with_context(|| "failed to compile regex".to_owned())?;
                         if let Some(captures) = regex.captures(line.as_str()) {
                             match captures.get(3).unwrap().as_str() {
-                                "suceeded" => Ok(output.status.success()),
+                                "succeeded" => Ok(output.status.success()),
                                 _ => Ok(false),
                             }
                         } else {
