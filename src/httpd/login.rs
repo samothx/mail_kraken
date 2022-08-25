@@ -1,3 +1,4 @@
+use crate::doveadm::authenticate;
 use crate::httpd::error::{ApiError, ApiResult, SiteError, SiteResult};
 use crate::httpd::state_data::StateData;
 use crate::httpd::ADMIN_NAME;
@@ -112,7 +113,11 @@ pub async fn login_handler(
             warn!("login failure:");
             Err(ApiError::Passwd("invalid password".to_string()))
         }
+    } else if authenticate(payload.login.as_str(), payload.passwd.as_str()).await? {
+        id.remember(payload.login.clone());
+        Ok(HttpResponse::Ok().body(()))
     } else {
-        Err(ApiError::NotImpl())
+        id.forget();
+        Err(ApiError::Passwd("invalid password or user".to_string()))
     }
 }

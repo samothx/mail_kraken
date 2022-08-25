@@ -12,7 +12,10 @@ const DOVEADM_CMD: &str = "doveadm";
 mod params;
 pub use params::{FetchParams, ImapField, SearchParam};
 
+mod auth;
 mod parser;
+
+pub use auth::authenticate;
 
 pub struct DoveadmFetch {
     params: FetchParams,

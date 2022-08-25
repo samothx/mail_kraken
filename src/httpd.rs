@@ -17,12 +17,14 @@ const ADMIN_NAME: &str = "admin";
 
 mod admin;
 mod error;
-// mod error_old;
 mod login;
 mod state_data;
+mod user;
 
+use crate::db::init_db;
 use crate::httpd::admin::{admin_dash, admin_db_url, admin_passwd};
 use crate::httpd::login::{admin_login_form, login_form, login_handler};
+use crate::httpd::user::user_dash;
 use state_data::{SharedData, StateData};
 
 pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
@@ -38,7 +40,13 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
 
     let pool = if let Some(db_url) = config.get_db_url() {
         match Pool::from_url(db_url.as_str()) {
-            Ok(pool) => Some(pool),
+            Ok(pool) => match init_db(pool.clone()).await {
+                Ok(_) => Some(pool),
+                Err(e) => {
+                    error!("failed to initilaize database: {:?}", e);
+                    None
+                }
+            },
             Err(e) => {
                 error!("failed to log in to database: {:?}", e);
                 None
@@ -78,6 +86,7 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
             .service(login_form)
             .service(login_handler)
             .service(admin_dash)
+            .service(user_dash)
     })
     .bind(ip_addr)
     .with_context(|| "failed to bind to ip address".to_owned())?

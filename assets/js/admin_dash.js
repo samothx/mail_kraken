@@ -42,6 +42,7 @@ function submit_admin_passwd() {
                     response.text().then(function (text) {
                         $('#error-cntr').removeClass('err_visible');
                         $('#error-cntr').addClass('err_invisible');
+                        // TODO: positive visual feedback
                         resolve();
                     });
                 } else {
@@ -91,6 +92,7 @@ function submit_db_url() {
                         // console.log(`body: ${text}`);
                         $('#error-cntr').removeClass('err_visible');
                         $('#error-cntr').addClass('err_invisible');
+                        // TODO: positive visual feedback
                         resolve();
                     });
                 } else {

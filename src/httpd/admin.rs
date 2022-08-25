@@ -11,12 +11,6 @@ use log::debug;
 use mysql_async::Pool;
 use serde::Deserialize;
 
-#[derive(Template)]
-#[template(path = "admin_dash.html")]
-struct AdminDashboard {
-    db_url: String,
-}
-
 #[derive(Debug, Deserialize)]
 pub struct PayloadDbUrl {
     db_url: String,
@@ -144,6 +138,12 @@ pub async fn admin_passwd(
     } else {
         Err(ApiError::Auth())
     }
+}
+
+#[derive(Template)]
+#[template(path = "admin_dash.html")]
+struct AdminDashboard {
+    db_url: String,
 }
 
 #[get("/admin_dash")]
