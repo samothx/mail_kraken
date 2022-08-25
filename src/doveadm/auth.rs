@@ -24,13 +24,13 @@ pub async fn authenticate(user: &str, passwd: &str) -> Result<bool> {
                 output.stdout.lines().for_each(|line| {
                     error!(
                         "authenticate: stdout: {}",
-                        line.unwrap_or("error reading line")
+                        line.unwrap_or("error reading line".to_owned())
                     );
                 });
                 output.stderr.lines().for_each(|line| {
                     error!(
                         "authenticate: stderr: {}",
-                        line.unwrap_or("error reading line")
+                        line.unwrap_or("error reading line".to_owned())
                     );
                 })
             }
