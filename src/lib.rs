@@ -42,7 +42,7 @@ pub async fn run(cmd_args: CmdArgs) -> Result<()> {
         return Err(anyhow!("please run this command as root"));
     }
 
-    switch_to_user(true).with_context(|| "failed to switch user".to_owned())?;
+    switch_to_user(false).with_context(|| "failed to switch user".to_owned())?;
 
     match cmd_args.cmd {
         Command::Serve(args) => serve(args, config).await,
