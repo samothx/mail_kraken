@@ -1,13 +1,14 @@
 use crate::doveadm::DOVEADM_CMD;
 use crate::switch_to_user;
 use anyhow::{anyhow, Context, Result};
-use log::error;
+use log::{debug, error};
 use regex::Regex;
 use std::io::BufRead;
 use tokio::process::Command;
 // doveadm auth login <user> <passwd>
 
 pub async fn authenticate(user: &str, passwd: &str) -> Result<bool> {
+    debug!("authenticate: called for user {}", user);
     switch_to_user(true)?;
     let output = Command::new(DOVEADM_CMD)
         .args(&["auth", "login", user, passwd])
@@ -16,24 +17,22 @@ pub async fn authenticate(user: &str, passwd: &str) -> Result<bool> {
     switch_to_user(false)?;
     match output {
         Ok(output) => {
-            if !output.status.success() {
-                error!(
-                    "authenticate: doveadm auth login failed: {:?}",
-                    output.status.code()
+            debug!(
+                "authenticate: doveadm auth login failed: {:?}",
+                output.status.code()
+            );
+            output.stdout.lines().for_each(|line| {
+                debug!(
+                    "authenticate: stdout: {}",
+                    line.unwrap_or("error reading line".to_owned())
                 );
-                output.stdout.lines().for_each(|line| {
-                    error!(
-                        "authenticate: stdout: {}",
-                        line.unwrap_or("error reading line".to_owned())
-                    );
-                });
-                output.stderr.lines().for_each(|line| {
-                    error!(
-                        "authenticate: stderr: {}",
-                        line.unwrap_or("error reading line".to_owned())
-                    );
-                })
-            }
+            });
+            output.stderr.lines().for_each(|line| {
+                debug!(
+                    "authenticate: stderr: {}",
+                    line.unwrap_or("error reading line".to_owned())
+                );
+            });
             if let Some(line) = output.stdout.lines().next() {
                 match line {
                     Ok(line) => {
