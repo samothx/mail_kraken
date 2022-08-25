@@ -32,12 +32,13 @@ pub async fn admin_db_url(
         let pool = Pool::from_url(payload.db_url.as_str()).map_err(|e| {
             ApiError::BadRequest(Some(format!("failed to connect to database: {}", e)))
         })?;
-        init_db(pool).await?;
+        init_db(pool.clone()).await?;
         let mut state = state
             .get_mut_state()
             .map_err(|e| ApiError::Internal(Some(e.to_string())))?;
         state.config.set_db_url(payload.db_url.as_str());
         state.config.save().await?;
+        state.db_conn = Some(pool);
         Ok(HttpResponse::Ok().body(()))
     } else {
         Err(ApiError::Auth())

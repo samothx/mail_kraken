@@ -86,14 +86,14 @@ pub async fn login_handler(
         payload.login
     );
 
-    let pw_hash = {
-        let state = state
-            .get_state()
-            .map_err(|e| ApiError::Internal(Some(e.to_string())))?;
-        state.config.get_pw_hash()
-    };
-
     if payload.login.eq("admin") {
+        let pw_hash = {
+            let state = state
+                .get_state()
+                .map_err(|e| ApiError::Internal(Some(e.to_string())))?;
+            state.config.get_pw_hash()
+        };
+
         let passwd_valid = tokio::task::spawn_blocking(move || {
             bcrypt::verify(payload.passwd.as_str(), pw_hash.as_str())
         })
@@ -113,11 +113,14 @@ pub async fn login_handler(
             warn!("login failure:");
             Err(ApiError::Passwd("invalid password".to_string()))
         }
-    } else if authenticate(payload.login.as_str(), payload.passwd.as_str()).await? {
-        id.remember(payload.login.clone());
-        Ok(HttpResponse::Ok().body(()))
     } else {
-        id.forget();
-        Err(ApiError::Passwd("invalid password or user".to_string()))
+        // TODO: ensure payload.login is safe to hand over to doveadm
+        if authenticate(payload.login.as_str(), payload.passwd.as_str()).await? {
+            id.remember(payload.login.clone());
+            Ok(HttpResponse::Ok().body(()))
+        } else {
+            id.forget();
+            Err(ApiError::Passwd("invalid password or user".to_string()))
+        }
     }
 }
