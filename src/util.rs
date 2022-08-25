@@ -21,6 +21,7 @@ pub fn switch_to_user(root: bool) -> Result<()> {
     };
 
     if getuid().as_raw() == dest_uid && getgid().as_raw() == dest_uid {
+        debug!("switch_to_user: already {}", username);
         return Ok(());
     }
 
