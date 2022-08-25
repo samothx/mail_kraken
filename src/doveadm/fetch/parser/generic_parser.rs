@@ -1,8 +1,9 @@
-use crate::doveadm::params::ImapField;
-use crate::doveadm::parser::FieldType::MultiLine;
-use crate::doveadm::parser::{FetchFieldRes, FieldType, Parser, FORM_FEED, LINE_FEED};
-use crate::doveadm::Reader;
+use crate::doveadm::fetch::params::ImapField;
+use crate::doveadm::fetch::parser::FieldType::MultiLine;
+use crate::doveadm::fetch::parser::{FetchFieldRes, FieldType, Parser, FORM_FEED, LINE_FEED};
+use crate::doveadm::fetch::Reader;
 use anyhow::{anyhow, Context, Result};
+use async_trait::async_trait;
 use log::debug;
 use regex::Regex;
 
@@ -27,17 +28,18 @@ impl GenericParser {
     }
 }
 
+#[async_trait]
 impl Parser for GenericParser {
     fn get_first_line_re(&self) -> &Regex {
         &self.first_line_re
     }
 
-    fn parse_first_field(
+    async fn parse_first_field(
         &self,
         reader: &mut Reader,
         next_re: Option<&Regex>,
     ) -> Result<Option<FetchFieldRes>> {
-        if let Some(line) = reader.next_line()? {
+        if let Some(line) = reader.next_line().await? {
             let line = line.trim_end_matches(LINE_FEED);
             if let Some(captures) = self.first_line_re.captures(line) {
                 if captures.len() > 2 {
@@ -62,7 +64,7 @@ impl Parser for GenericParser {
                         &self.first_line_re
                     };
                     let mut res: Vec<String> = Vec::new();
-                    while let Some(line) = reader.next_line()? {
+                    while let Some(line) = reader.next_line().await? {
                         let line = line.trim_end_matches(LINE_FEED);
                         if line.ends_with(FORM_FEED) {
                             return Ok(Some(FetchFieldRes::Generic((

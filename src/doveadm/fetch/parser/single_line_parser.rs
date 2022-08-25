@@ -1,7 +1,8 @@
-use crate::doveadm::params::ImapField;
-use crate::doveadm::parser::{FetchFieldRes, Parser, SingleLineType, LINE_FEED};
-use crate::doveadm::Reader;
+use crate::doveadm::fetch::params::ImapField;
+use crate::doveadm::fetch::parser::{FetchFieldRes, Parser, SingleLineType, LINE_FEED};
+use crate::doveadm::fetch::Reader;
 use anyhow::{anyhow, Context, Result};
+use async_trait::async_trait;
 use log::debug;
 use regex::Regex;
 
@@ -24,18 +25,19 @@ impl SingleLineParser {
     }
 }
 
+#[async_trait]
 impl Parser for SingleLineParser {
     fn get_first_line_re(&self) -> &Regex {
         &self.first_line_re
     }
 
-    fn parse_first_field(
+    async fn parse_first_field(
         &self,
         reader: &mut Reader,
         _next_re: Option<&Regex>,
     ) -> Result<Option<FetchFieldRes>> {
         // this is a one-liner, so next_re is not needed
-        if let Some(line) = reader.next_line()? {
+        if let Some(line) = reader.next_line().await? {
             let line = line.trim_end_matches(LINE_FEED);
             if let Some(captures) = self.first_line_re.captures(line) {
                 if let Some(flags) = captures.get(1) {

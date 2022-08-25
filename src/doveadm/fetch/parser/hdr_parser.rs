@@ -1,7 +1,8 @@
-use crate::doveadm::params::ImapField;
-use crate::doveadm::parser::{FetchFieldRes, Parser, LINE_FEED};
-use crate::doveadm::Reader;
+use crate::doveadm::fetch::params::ImapField;
+use crate::doveadm::fetch::parser::{FetchFieldRes, Parser, LINE_FEED};
+use crate::doveadm::fetch::Reader;
 use anyhow::{anyhow, Context, Result};
+use async_trait::async_trait;
 use log::{debug, warn};
 use regex::Regex;
 use std::collections::HashMap;
@@ -29,22 +30,23 @@ impl HdrParser {
     }
 }
 
+#[async_trait]
 impl Parser for HdrParser {
     fn get_first_line_re(&self) -> &Regex {
         &self.first_line_re
     }
 
-    fn parse_first_field(
+    async fn parse_first_field(
         &self,
         reader: &mut Reader,
         _next_re: Option<&Regex>,
     ) -> Result<Option<FetchFieldRes>> {
-        if let Some(line) = reader.next_line()? {
+        if let Some(line) = reader.next_line().await? {
             let line = line.trim_end_matches(LINE_FEED);
             if self.first_line_re.is_match(line) {
                 let mut res: HashMap<String, String> = HashMap::new();
                 let mut last_key: Option<String> = None;
-                while let Some(line) = reader.next_line()? {
+                while let Some(line) = reader.next_line().await? {
                     let line = line.trim_end_matches(LINE_FEED);
                     if let Some(captures) = self.subseq_line_re.captures(line) {
                         if let Some(no_tag) = captures.get(4) {
