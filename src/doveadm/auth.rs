@@ -1,6 +1,7 @@
 use crate::doveadm::DOVEADM_CMD;
 use crate::switch_to_user;
 use anyhow::{anyhow, Context, Result};
+use log::error;
 use regex::Regex;
 use std::io::BufRead;
 use tokio::process::Command;
@@ -15,6 +16,24 @@ pub async fn authenticate(user: &str, passwd: &str) -> Result<bool> {
     switch_to_user(false)?;
     match output {
         Ok(output) => {
+            if !output.status.success() {
+                error!(
+                    "authenticate: doveadm auth login failed: {:?}",
+                    output.status.code()
+                );
+                output.stdout.lines().for_each(|line| {
+                    error!(
+                        "authenticate: stdout: {}",
+                        line.unwrap_or("error reading line")
+                    );
+                });
+                output.stderr.lines().for_each(|line| {
+                    error!(
+                        "authenticate: stderr: {}",
+                        line.unwrap_or("error reading line")
+                    );
+                })
+            }
             if let Some(line) = output.stdout.lines().next() {
                 match line {
                     Ok(line) => {
