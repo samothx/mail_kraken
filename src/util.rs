@@ -20,11 +20,12 @@ pub fn switch_to_user(root: bool) -> Result<()> {
         (SWITCH2USER, user_info.get_uid(), user_info.get_gid())
     };
 
-    if getuid().as_raw() == dest_uid && getgid().as_raw() == dest_uid {
-        debug!("switch_to_user: already {}", username);
-        return Ok(());
-    }
-
+    // TODO: this check does not appear to be working - fix
+    /*    if getuid().as_raw() == dest_uid && getgid().as_raw() == dest_uid {
+            debug!("switch_to_user: already {}", username);
+            return Ok(());
+        }
+    */
     match unsafe { setresgid(0xFFFFFFFF, dest_gid, ROOT_GID) } {
         0 => debug!("setresgid success"),
         _ => {
