@@ -4,7 +4,7 @@ CREATE TABLE `db_ver` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE `user` (
-    `id` bigint(20) NOT NULL AUTO_INCREMENT,
+    `id` bigint unsigned NOT NULL AUTO_INCREMENT,
     `user` varchar(128) NOT NULL,
     PRIMARY KEY (`id`),
     UNIQUE KEY `user` (`user`)

@@ -117,6 +117,7 @@ pub async fn login_handler(
         // TODO: ensure payload.login is safe to hand over to doveadm
         if authenticate(payload.login.as_str(), payload.passwd.as_str()).await? {
             id.remember(payload.login.clone());
+
             Ok(HttpResponse::Ok().body(()))
         } else {
             id.forget();

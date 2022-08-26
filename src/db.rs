@@ -1,3 +1,4 @@
+use crate::doveadm::{Fetch, FetchParams, ImapField, SearchParam};
 use anyhow::{anyhow, Context, Result};
 use log::{debug, info};
 use mysql_async::prelude::{Query, Queryable, WithParams};
@@ -52,5 +53,48 @@ pub async fn init_db(pool: Pool) -> Result<()> {
                 DB_VERSION,
             ))
         }
+    }
+}
+
+struct db_user {
+    id: i64,
+    user: String,
+}
+
+pub async fn init_user(pool: Pool, user: &str) -> Result<()> {
+    debug!("init_user: called for {}", user);
+    let mut db_conn = pool.get_conn().await?;
+
+    let mut user_id: Option<u64> = r"select id from user where user=:user"
+        .with(params! {user=>user})
+        .first(&mut db_conn)
+        .await?;
+    if user_id.is_none() {
+        r"insert into user (user) values(:user)"
+            .with(params! {user=>user})
+            .ignore(&mut db_conn)
+            .await?;
+        user_id = db_conn.last_insert_id()
+    }
+
+    if let Some(user_id) = user_id {
+        debug!("init_user: fetching,  id: {} ", user_id);
+        let fetch_params = FetchParams::new(user.to_owned())
+            .add_field(ImapField::Flags)
+            .add_field(ImapField::Guid)
+            .add_field(ImapField::Mailbox)
+            .add_field(ImapField::Hdr)
+            .add_search_param(SearchParam::All);
+        let mut fetch_cmd = Fetch::new(fetch_params)?;
+        while let Some(record) = fetch_cmd.parse_record().await? {
+            debug!("got record: {:?}", record);
+        }
+        debug!("done parsing records");
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "failed to get user id for {}, trying select & insert",
+            user
+        ))
     }
 }

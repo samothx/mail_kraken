@@ -19,12 +19,12 @@ impl FetchParams {
         }
     }
 
-    pub fn add_field(&mut self, field: ImapField) -> &mut Self {
+    pub fn add_field(mut self, field: ImapField) -> Self {
         self.fields.push(field);
         self
     }
 
-    pub fn add_search_param(&mut self, param: SearchParam) -> &mut Self {
+    pub fn add_search_param(mut self, param: SearchParam) -> Self {
         self.search.push(param);
         self
     }
