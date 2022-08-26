@@ -15,10 +15,14 @@ macro_rules! string_parser {
         impl $name {
             pub fn new() -> Result<$name> {
                 let re_str = format!(r"^{}:\s+(.*)$", $tag);
-                debug!("new: first_line_re: {:?}", re_str);
+                debug!("new: [{}]->str first_line_re: {:?}", $tag, re_str);
                 Ok($name {
-                    first_line_re: Regex::new(re_str.as_str())
-                        .with_context(|| format!("failed to create regex from '{}'", re_str))?,
+                    first_line_re: Regex::new(re_str.as_str()).with_context(|| {
+                        format!(
+                            "new: [{}]->str failed to create regex from '{}'",
+                            $tag, re_str
+                        )
+                    })?,
                 })
             }
         }
@@ -39,17 +43,21 @@ macro_rules! string_parser {
                     let line = line.trim_end_matches(LINE_FEED);
                     if let Some(captures) = self.first_line_re.captures(line) {
                         if let Some(uid) = captures.get(1) {
-                            debug!("parse_first_field: got payload: {:?}", uid.as_str());
+                            debug!(
+                                "parse_first_field: [{}]->str got payload: {:?}",
+                                $tag,
+                                uid.as_str()
+                            );
                             Ok(Some($res(uid.as_str().to_owned())))
                         } else {
                             Err(anyhow!(
-                                "parse_first_field: {} parser matched but no caption",
+                                "parse_first_field: [{}]->str parser matched but no caption",
                                 $tag
                             )) //
                         }
                     } else {
                         Err(anyhow!(
-                            "parse_first_field: no match for {} parser on {:?}",
+                            "parse_first_field: [{}]->str no match for parser on {:?}",
                             $tag,
                             line
                         ))
@@ -71,10 +79,13 @@ macro_rules! string_list_parser {
         impl $name {
             pub fn new() -> Result<$name> {
                 let re_str = format!(r"^{}:\s+(.*)$", $tag);
-                debug!("new: [{}] first_line_re: {:?}", $tag, re_str);
+                debug!("new: [{}]->sl first_line_re: {:?}", $tag, re_str);
                 Ok($name {
                     first_line_re: Regex::new(re_str.as_str()).with_context(|| {
-                        format!("new: [{}] failed to create regex from '{}'", $tag, re_str)
+                        format!(
+                            "new: [{}]->sl failed to create regex from '{}'",
+                            $tag, re_str
+                        )
                     })?,
                 })
             }
@@ -97,7 +108,7 @@ macro_rules! string_list_parser {
                     if let Some(captures) = self.first_line_re.captures(line) {
                         if let Some(flags) = captures.get(1) {
                             debug!(
-                                "parse_first_field: [{}] got payload: {:?}",
+                                "parse_first_field: [{}]->sl got payload: {:?}",
                                 $tag,
                                 flags.as_str()
                             );
@@ -110,13 +121,13 @@ macro_rules! string_list_parser {
                             )))
                         } else {
                             Err(anyhow!(
-                                "parse_first_field: [{}] parser matched but no caption",
+                                "parse_first_field: [{}]->sl parser matched but no caption",
                                 $tag
                             )) //
                         }
                     } else {
                         Err(anyhow!(
-                            "parse_first_field: [{}] no match for Flags parser on {:?}",
+                            "parse_first_field: [{}]->sl no match for Flags parser on {:?}",
                             $tag,
                             line
                         ))

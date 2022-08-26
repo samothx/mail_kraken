@@ -99,21 +99,27 @@ pub async fn init_user(pool: Pool, user: &str) -> Result<()> {
             for item in record.into_iter() {
                 match item {
                     FetchFieldRes::Uid(value) => {
+                        debug!("init_user: got {:?}", value);
                         uid = Some(value);
                     }
                     FetchFieldRes::Guid(value) => {
+                        debug!("init_user: got {:?}", value);
                         guid = Some(value);
                     }
                     FetchFieldRes::Mailbox(value) => {
+                        debug!("init_user: got {:?}", value);
                         mailbox = Some(value);
                     }
                     FetchFieldRes::Flags(value) => {
+                        debug!("init_user: got {:?}", value);
                         flags = value;
                     }
                     FetchFieldRes::Hdr(val) => {
+                        debug!("init_user: got {:?}", val);
                         hdr = val;
                     }
                     FetchFieldRes::Generic((imap_field, value)) => {
+                        debug!("init_user: got {:?} {:?}", imap_field, value);
                         todo!()
                     }
                 }
