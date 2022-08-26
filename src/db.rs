@@ -66,12 +66,12 @@ pub async fn init_user(pool: Pool, user: &str) -> Result<()> {
     let mut db_conn = pool.get_conn().await?;
 
     let mut user_id: Option<u64> = r"select id from user where user=:user"
-        .with(params! {user=>user})
+        .with(params! {"user"=>user})
         .first(&mut db_conn)
         .await?;
     if user_id.is_none() {
         r"insert into user (user) values(:user)"
-            .with(params! {user=>user})
+            .with(params! {"user"=>user})
             .ignore(&mut db_conn)
             .await?;
         user_id = db_conn.last_insert_id()
