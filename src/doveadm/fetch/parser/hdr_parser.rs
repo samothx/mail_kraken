@@ -45,20 +45,15 @@ impl Parser for HdrParser {
             let line = line.trim_end_matches(LINE_FEED);
             if self.first_line_re.is_match(line) {
                 let mut res: Vec<(String, String)> = Vec::new();
-                let mut last_key: Option<String> = None;
                 while let Some(line) = reader.next_line().await? {
                     let line = line.trim_end_matches(LINE_FEED);
                     if let Some(captures) = self.subseq_line_re.captures(line) {
                         if let Some(no_tag) = captures.get(4) {
                             let add_val = no_tag.as_str();
-                            if let Some(key) = last_key.as_ref() {
-                                let (_, value) =
-                                    res.last_mut().expect("unexpected: last value not found");
-                                value.push('\n');
-                                value.push_str(add_val);
-                            } else {
-                                warn!("no recent key found fo tagless value");
-                            }
+                            let (_, value) =
+                                res.last_mut().expect("unexpected: last value not found");
+                            value.push('\n');
+                            value.push_str(add_val);
                         } else {
                             res.push(
                                 (captures
