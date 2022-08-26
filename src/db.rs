@@ -93,6 +93,7 @@ pub async fn init_user(pool: Pool, user: &str) -> Result<()> {
             let mut uid: Option<String> = None;
             let mut mailbox: Option<String> = None;
             let mut flags = Vec::new();
+            let mut hdr = Vec::new();
             // let mut hdrs:
 
             for item in record.into_iter() {
@@ -109,32 +110,8 @@ pub async fn init_user(pool: Pool, user: &str) -> Result<()> {
                     FetchFieldRes::Flags(value) => {
                         flags = value;
                     }
-                    FetchFieldRes::SingleLine((imap_field, value)) => {
-                        match imap_field {
-                            ImapField::Uid => match value {
-                                SingleLineType::StringType(value) => {
-                                    uid = Some(value);
-                                }
-                                SingleLineType::ListType(_) => {
-                                    warn!(
-                                            "init_user: unexpected field {:?} in FetchFieldRes::SingleLine ListType",
-                                            imap_field
-                                        );
-                                    continue;
-                                }
-                            },
-                            _ => {
-                                warn!(
-                                    "init_user: unexpected field {:?} in FetchFieldRes::SingleLine",
-                                    imap_field
-                                );
-                                continue;
-                            }
-                        }
-                        todo!()
-                    }
                     FetchFieldRes::Hdr(val) => {
-                        todo!()
+                        hdr = val;
                     }
                     FetchFieldRes::Generic((imap_field, value)) => {
                         todo!()

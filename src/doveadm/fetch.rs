@@ -8,7 +8,7 @@ use tokio::process::{Child, ChildStdout, Command};
 use super::{DOVEADM_CMD, MB_SIZE};
 use crate::switch_to_user;
 use params::{FetchParams, ImapField};
-use parser::{FetchRecord, GenericParser, HdrParser, Parser, SingleLineParser};
+use parser::{FetchRecord, GenericParser, HdrParser, Parser};
 
 pub mod params;
 mod parser;
@@ -54,14 +54,14 @@ impl Fetch {
         let mut parsers: Vec<Box<dyn Parser + Sync>> = Vec::new();
         for field in params.fields() {
             parsers.push(match field {
-                ImapField::Flags => {
+                /*ImapField::Flags => {
                     Box::new(SingleLineParser::new(field, true)?) as Box<dyn Parser + Sync>
-                }
+                }*/
                 ImapField::Uid => Box::new(UidParser::new()?) as Box<dyn Parser + Sync>,
                 ImapField::Guid => Box::new(GuidParser::new()?) as Box<dyn Parser + Sync>,
-                ImapField::DateReceived | ImapField::DateSaved | ImapField::DateSent => {
+                /*ImapField::DateReceived | ImapField::DateSaved | ImapField::DateSent => {
                     Box::new(SingleLineParser::new(field, true)?) as Box<dyn Parser + Sync>
-                }
+                }*/
                 ImapField::Hdr => Box::new(HdrParser::new()?) as Box<dyn Parser + Sync>,
                 _ => Box::new(GenericParser::new(field)?) as Box<dyn Parser + Sync>,
             });

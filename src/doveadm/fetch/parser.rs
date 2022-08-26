@@ -5,8 +5,8 @@ use async_trait::async_trait;
 use log::debug;
 use regex::Regex;
 use std::collections::HashMap;
-mod single_line_parser;
-pub use single_line_parser::SingleLineParser;
+// mod single_line_parser;
+// pub use single_line_parser::SingleLineParser;
 mod generic_parser;
 pub use generic_parser::GenericParser;
 mod uid_parser;
@@ -91,7 +91,6 @@ pub enum SingleLineType {
 
 #[derive(Debug)]
 pub enum FetchFieldRes {
-    SingleLine((ImapField, SingleLineType)),
     Hdr(Vec<(String, String)>),
     Uid(String),
     Guid(String),
