@@ -12,6 +12,8 @@ use parser::{FetchRecord, GenericParser, HdrParser, Parser, SingleLineParser};
 
 pub mod params;
 mod parser;
+use crate::doveadm::fetch::parser::{GuidParser, UidParser};
+pub use parser::{FetchFieldRes, SingleLineType};
 
 pub struct Fetch {
     params: FetchParams,
@@ -55,6 +57,8 @@ impl Fetch {
                 ImapField::Flags => {
                     Box::new(SingleLineParser::new(field, true)?) as Box<dyn Parser + Sync>
                 }
+                ImapField::Uid => Box::new(UidParser::new()?) as Box<dyn Parser + Sync>,
+                ImapField::Guid => Box::new(GuidParser::new()?) as Box<dyn Parser + Sync>,
                 ImapField::DateReceived | ImapField::DateSaved | ImapField::DateSent => {
                     Box::new(SingleLineParser::new(field, true)?) as Box<dyn Parser + Sync>
                 }

@@ -44,7 +44,7 @@ impl Parser for HdrParser {
         if let Some(line) = reader.next_line().await? {
             let line = line.trim_end_matches(LINE_FEED);
             if self.first_line_re.is_match(line) {
-                let mut res: HashMap<String, String> = HashMap::new();
+                let mut res: Vec<(String, String)> = Vec::new();
                 let mut last_key: Option<String> = None;
                 while let Some(line) = reader.next_line().await? {
                     let line = line.trim_end_matches(LINE_FEED);
@@ -52,28 +52,26 @@ impl Parser for HdrParser {
                         if let Some(no_tag) = captures.get(4) {
                             let add_val = no_tag.as_str();
                             if let Some(key) = last_key.as_ref() {
-                                let value = res.get_mut(key).expect("unexpected key not found");
+                                let (_, value) =
+                                    res.last_mut().expect("unexpected: last value not found");
                                 value.push('\n');
                                 value.push_str(add_val);
                             } else {
                                 warn!("no recent key found fo tagless value");
                             }
                         } else {
-                            let key = captures
-                                    .get(2)
-                                    .unwrap_or_else(|| panic!("HdrParser::parse_first_field: unexpected empty Hdr value in line '{}'", line))
-                                    .as_str()
-                                    .to_owned();
-
-                            res.insert(
-                                    key.clone(),
+                            res.push(
+                                (captures
+                                     .get(2)
+                                     .unwrap_or_else(|| panic!("HdrParser::parse_first_field: unexpected empty Hdr value in line '{}'", line))
+                                     .as_str()
+                                     .to_owned(),
                                     captures
                                         .get(3)
                                         .unwrap_or_else(|| panic!("HdrParser::parse_first_field: unexpected empty Hdr value in line '{}'", line))
                                         .as_str()
                                         .to_owned(),
-                                ).map_or((), |_| warn!("duplicate key found: '{}'", key));
-                            last_key = Some(key);
+                                ));
                         }
                     } else if line.is_empty() {
                         return Ok(Some(FetchFieldRes::Hdr(res)));

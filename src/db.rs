@@ -1,6 +1,6 @@
-use crate::doveadm::{Fetch, FetchParams, ImapField, SearchParam};
+use crate::doveadm::{Fetch, FetchFieldRes, FetchParams, ImapField, SearchParam, SingleLineType};
 use anyhow::{anyhow, Context, Result};
-use log::{debug, info};
+use log::{debug, info, warn};
 use mysql_async::prelude::{Query, Queryable, WithParams};
 use mysql_async::{params, Pool};
 
@@ -82,12 +82,65 @@ pub async fn init_user(pool: Pool, user: &str) -> Result<()> {
         let fetch_params = FetchParams::new(user.to_owned())
             .add_field(ImapField::Flags)
             .add_field(ImapField::Guid)
+            .add_field(ImapField::Uid)
             .add_field(ImapField::Mailbox)
             .add_field(ImapField::Hdr)
             .add_search_param(SearchParam::All);
         let mut fetch_cmd = Fetch::new(fetch_params)?;
         while let Some(record) = fetch_cmd.parse_record().await? {
-            debug!("got record: {:?}", record);
+            // debug!("got record: {:?}", record);
+            let mut guid: Option<String> = None;
+            let mut uid: Option<String> = None;
+            let mut mailbox: Option<String> = None;
+            let mut flags = Vec::new();
+            // let mut hdrs:
+
+            for item in record.into_iter() {
+                match item {
+                    FetchFieldRes::Uid(value) => {
+                        uid = Some(value);
+                    }
+                    FetchFieldRes::Guid(value) => {
+                        guid = Some(value);
+                    }
+                    FetchFieldRes::Mailbox(value) => {
+                        mailbox = Some(value);
+                    }
+                    FetchFieldRes::Flags(value) => {
+                        flags = value;
+                    }
+                    FetchFieldRes::SingleLine((imap_field, value)) => {
+                        match imap_field {
+                            ImapField::Uid => match value {
+                                SingleLineType::StringType(value) => {
+                                    uid = Some(value);
+                                }
+                                SingleLineType::ListType(_) => {
+                                    warn!(
+                                            "init_user: unexpected field {:?} in FetchFieldRes::SingleLine ListType",
+                                            imap_field
+                                        );
+                                    continue;
+                                }
+                            },
+                            _ => {
+                                warn!(
+                                    "init_user: unexpected field {:?} in FetchFieldRes::SingleLine",
+                                    imap_field
+                                );
+                                continue;
+                            }
+                        }
+                        todo!()
+                    }
+                    FetchFieldRes::Hdr(val) => {
+                        todo!()
+                    }
+                    FetchFieldRes::Generic((imap_field, value)) => {
+                        todo!()
+                    }
+                }
+            }
         }
         debug!("done parsing records");
         Ok(())

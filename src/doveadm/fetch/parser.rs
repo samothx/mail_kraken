@@ -5,11 +5,13 @@ use async_trait::async_trait;
 use log::debug;
 use regex::Regex;
 use std::collections::HashMap;
-
 mod single_line_parser;
 pub use single_line_parser::SingleLineParser;
 mod generic_parser;
 pub use generic_parser::GenericParser;
+mod uid_parser;
+pub use uid_parser::{GuidParser, UidParser};
+
 mod hdr_parser;
 pub use hdr_parser::HdrParser;
 
@@ -66,8 +68,17 @@ impl FetchRecord {
     }
 }
 
+impl IntoIterator for FetchRecord {
+    type Item = FetchFieldRes;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 #[derive(Debug)]
-enum FieldType {
+pub enum FieldType {
     MultiLine(Vec<String>),
     SingleLine(String),
 }
@@ -80,8 +91,12 @@ pub enum SingleLineType {
 
 #[derive(Debug)]
 pub enum FetchFieldRes {
-    SingLine((ImapField, SingleLineType)),
-    Hdr(HashMap<String, String>),
+    SingleLine((ImapField, SingleLineType)),
+    Hdr(Vec<(String, String)>),
+    Uid(String),
+    Guid(String),
+    Flags(Vec<String>),
+    Mailbox(String),
     Generic((ImapField, FieldType)),
 }
 

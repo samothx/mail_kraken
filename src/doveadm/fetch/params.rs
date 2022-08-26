@@ -92,6 +92,8 @@ pub enum ImapField {
     DateSaved,
     #[strum(serialize = "date.sent")]
     DateSent,
+    #[strum(serialize = "uid")]
+    Uid,
     #[strum(serialize = "guid")]
     Guid,
     #[strum(serialize = "imap.body")]

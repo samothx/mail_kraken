@@ -6,5 +6,5 @@ mod fetch;
 pub use auth::authenticate;
 pub use fetch::{
     params::{FetchParams, ImapField, SearchParam},
-    Fetch,
+    Fetch, FetchFieldRes, SingleLineType,
 };

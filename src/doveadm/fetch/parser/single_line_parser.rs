@@ -46,7 +46,7 @@ impl Parser for SingleLineParser {
                         flags.as_str()
                     );
                     if self.is_list {
-                        Ok(Some(FetchFieldRes::SingLine((
+                        Ok(Some(FetchFieldRes::SingleLine((
                             self.field_type.clone(),
                             SingleLineType::ListType(
                                 flags
@@ -57,7 +57,7 @@ impl Parser for SingleLineParser {
                             ),
                         ))))
                     } else {
-                        Ok(Some(FetchFieldRes::SingLine((
+                        Ok(Some(FetchFieldRes::SingleLine((
                             self.field_type.clone(),
                             SingleLineType::StringType(flags.as_str().to_owned()),
                         ))))
