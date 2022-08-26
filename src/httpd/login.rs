@@ -1,3 +1,4 @@
+use crate::db::init_user;
 use crate::doveadm::authenticate;
 use crate::httpd::error::{ApiError, ApiResult, SiteError, SiteResult};
 use crate::httpd::state_data::StateData;
@@ -118,6 +119,17 @@ pub async fn login_handler(
         if authenticate(payload.login.as_str(), payload.passwd.as_str()).await? {
             id.remember(payload.login.clone());
 
+            init_user(
+                state
+                    .get_state()
+                    .map_err(|e| ApiError::Internal(Some(e.to_string())))?
+                    .db_conn
+                    .as_ref()
+                    .expect("unexpected empty state variable pool")
+                    .clone(),
+                payload.login.as_str(),
+            )
+            .await?;
             Ok(HttpResponse::Ok().body(()))
         } else {
             id.forget();
