@@ -9,8 +9,8 @@ use std::collections::HashMap;
 // pub use single_line_parser::SingleLineParser;
 mod generic_parser;
 pub use generic_parser::GenericParser;
-mod uid_parser;
-pub use uid_parser::{GuidParser, UidParser};
+mod macro_parsers;
+pub use macro_parsers::{GuidParser, UidParser};
 
 mod hdr_parser;
 pub use hdr_parser::HdrParser;
