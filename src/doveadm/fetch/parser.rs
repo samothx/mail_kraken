@@ -10,7 +10,7 @@ use std::collections::HashMap;
 mod generic_parser;
 pub use generic_parser::GenericParser;
 mod macro_parsers;
-pub use macro_parsers::{GuidParser, UidParser};
+pub use macro_parsers::{FlagsParser, GuidParser, MailboxParser, UidParser};
 
 mod hdr_parser;
 pub use hdr_parser::HdrParser;

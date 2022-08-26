@@ -12,7 +12,7 @@ use parser::{FetchRecord, GenericParser, HdrParser, Parser};
 
 pub mod params;
 mod parser;
-use crate::doveadm::fetch::parser::{GuidParser, UidParser};
+use crate::doveadm::fetch::parser::{FlagsParser, GuidParser, MailboxParser, UidParser};
 pub use parser::{FetchFieldRes, SingleLineType};
 
 pub struct Fetch {
@@ -54,11 +54,10 @@ impl Fetch {
         let mut parsers: Vec<Box<dyn Parser + Sync>> = Vec::new();
         for field in params.fields() {
             parsers.push(match field {
-                /*ImapField::Flags => {
-                    Box::new(SingleLineParser::new(field, true)?) as Box<dyn Parser + Sync>
-                }*/
+                ImapField::Flags => Box::new(FlagsParser::new()?) as Box<dyn Parser + Sync>,
                 ImapField::Uid => Box::new(UidParser::new()?) as Box<dyn Parser + Sync>,
                 ImapField::Guid => Box::new(GuidParser::new()?) as Box<dyn Parser + Sync>,
+                ImapField::Mailbox => Box::new(MailboxParser::new()?) as Box<dyn Parser + Sync>,
                 /*ImapField::DateReceived | ImapField::DateSaved | ImapField::DateSent => {
                     Box::new(SingleLineParser::new(field, true)?) as Box<dyn Parser + Sync>
                 }*/
