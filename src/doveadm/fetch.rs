@@ -6,6 +6,7 @@ use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncReadExt, BufReade
 use tokio::process::{Child, ChildStdout, Command};
 
 use super::{DOVEADM_CMD, MB_SIZE};
+use crate::switch_to_user;
 use params::{FetchParams, ImapField};
 use parser::{FetchRecord, GenericParser, HdrParser, Parser, SingleLineParser};
 
@@ -29,6 +30,7 @@ impl Fetch {
             params.to_args()
         );
         // TODO: set userid to root for this
+        switch_to_user(true)?;
         let mut child = Command::new(DOVEADM_CMD)
             .args(params.to_args()?)
             .stdin(Stdio::null())
@@ -37,6 +39,7 @@ impl Fetch {
             .spawn()
             .with_context(|| "failed to spawn doveadm fetch command".to_owned())?;
         // TODO: set userid back to nobody
+        switch_to_user(false)?;
         let stdout = match child.stdout.take() {
             Some(stdout) => BufReader::new(stdout),
             None => {
