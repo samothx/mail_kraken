@@ -3,9 +3,8 @@ use crate::doveadm::fetch::parser::{FetchFieldRes, Parser, LINE_FEED};
 use crate::doveadm::fetch::Reader;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
-use log::{debug, warn};
+use log::debug;
 use regex::Regex;
-use std::collections::HashMap;
 
 // TODO: must support duplicate keys - go back to Vec instead of hashmap or
 // supply individual header fields allowing for 'Received' and 'DKIM-Signature'

@@ -1,8 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use log::debug;
-use std::mem::take;
 use std::process::{ExitStatus, Stdio};
-use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::process::{Child, ChildStdout, Command};
 
 use super::{DOVEADM_CMD, MB_SIZE};
@@ -13,7 +12,7 @@ use parser::{FetchRecord, GenericParser, HdrParser, Parser};
 pub mod params;
 mod parser;
 use crate::doveadm::fetch::parser::{FlagsParser, GuidParser, MailboxParser, UidParser};
-pub use parser::{FetchFieldRes, SingleLineType};
+pub use parser::FetchFieldRes;
 
 pub struct Fetch {
     params: FetchParams,
@@ -21,7 +20,7 @@ pub struct Fetch {
     stdout: BufReader<ChildStdout>,
     line_count: usize,
     buffer: String,
-    parsers: Vec<Box<dyn Parser + Sync>>,
+    parsers: Vec<Box<dyn Parser + Sync + Send>>,
 }
 
 impl Fetch {
@@ -51,18 +50,20 @@ impl Fetch {
             }
         };
 
-        let mut parsers: Vec<Box<dyn Parser + Sync>> = Vec::new();
+        let mut parsers: Vec<Box<dyn Parser + Sync + Send>> = Vec::new();
         for field in params.fields() {
             parsers.push(match field {
-                ImapField::Flags => Box::new(FlagsParser::new()?) as Box<dyn Parser + Sync>,
-                ImapField::Uid => Box::new(UidParser::new()?) as Box<dyn Parser + Sync>,
-                ImapField::Guid => Box::new(GuidParser::new()?) as Box<dyn Parser + Sync>,
-                ImapField::Mailbox => Box::new(MailboxParser::new()?) as Box<dyn Parser + Sync>,
+                ImapField::Flags => Box::new(FlagsParser::new()?) as Box<dyn Parser + Sync + Send>,
+                ImapField::Uid => Box::new(UidParser::new()?) as Box<dyn Parser + Sync + Send>,
+                ImapField::Guid => Box::new(GuidParser::new()?) as Box<dyn Parser + Sync + Send>,
+                ImapField::Mailbox => {
+                    Box::new(MailboxParser::new()?) as Box<dyn Parser + Sync + Send>
+                }
                 /*ImapField::DateReceived | ImapField::DateSaved | ImapField::DateSent => {
                     Box::new(SingleLineParser::new(field, true)?) as Box<dyn Parser + Sync>
                 }*/
-                ImapField::Hdr => Box::new(HdrParser::new()?) as Box<dyn Parser + Sync>,
-                _ => Box::new(GenericParser::new(field)?) as Box<dyn Parser + Sync>,
+                ImapField::Hdr => Box::new(HdrParser::new()?) as Box<dyn Parser + Sync + Send>,
+                _ => Box::new(GenericParser::new(field)?) as Box<dyn Parser + Sync + Send>,
             });
         }
 

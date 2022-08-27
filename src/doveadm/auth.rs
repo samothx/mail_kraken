@@ -1,7 +1,7 @@
 use crate::doveadm::DOVEADM_CMD;
 use crate::switch_to_user;
 use anyhow::{anyhow, Context, Result};
-use log::{debug, error};
+use log::debug;
 use regex::Regex;
 use std::io::BufRead;
 use tokio::process::Command;

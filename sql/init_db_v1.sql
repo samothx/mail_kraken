@@ -24,20 +24,23 @@ CREATE TABLE `record` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE `header` (
-    `rid` bigint unsigned NOT NULL,
+    `record_id` bigint unsigned NOT NULL,
+    `seq` mediumint unsigned NOT NULL,
     `name` varchar(256) NOT NULL,
     `value` varchar(1024) NOT NULL,
+    UNIQUE(record_id, seq),
     CONSTRAINT `fk_hdr_record_id`
-        FOREIGN KEY (rid) REFERENCES record (id)
+        FOREIGN KEY (record_id) REFERENCES record (id)
         ON DELETE CASCADE
         ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE `imap_flag` (
-      `rid` bigint unsigned NOT NULL,
+      `record_id` bigint unsigned NOT NULL,
       `name` varchar(256) NOT NULL,
+      UNIQUE (record_id, name),
       CONSTRAINT `fk_if_record_id`
-          FOREIGN KEY (rid) REFERENCES record (id)
+          FOREIGN KEY (record_id) REFERENCES record (id)
               ON DELETE CASCADE
               ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

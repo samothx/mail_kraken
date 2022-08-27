@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use log::debug;
 use regex::Regex;
-use std::collections::HashMap;
+
 // mod single_line_parser;
 // pub use single_line_parser::SingleLineParser;
 mod generic_parser;
@@ -24,7 +24,7 @@ pub struct FetchRecord(Vec<FetchFieldRes>);
 
 impl FetchRecord {
     pub async fn parse(
-        parsers: &Vec<Box<dyn Parser + Sync>>,
+        parsers: &[Box<dyn Parser + Sync + Send>],
         reader: &mut Reader<'_>,
     ) -> Result<Option<FetchRecord>> {
         debug!("FetchRecord::parse: started");
@@ -81,12 +81,6 @@ impl IntoIterator for FetchRecord {
 pub enum FieldType {
     MultiLine(Vec<String>),
     SingleLine(String),
-}
-
-#[derive(Debug)]
-pub enum SingleLineType {
-    StringType(String),
-    ListType(Vec<String>),
 }
 
 #[derive(Debug)]

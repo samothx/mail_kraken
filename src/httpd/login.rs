@@ -119,7 +119,7 @@ pub async fn login_handler(
         if authenticate(payload.login.as_str(), payload.passwd.as_str()).await? {
             id.remember(payload.login.clone());
 
-            init_user(
+            let bg_task = init_user(
                 state
                     .get_state()
                     .map_err(|e| ApiError::Internal(Some(e.to_string())))?
@@ -130,6 +130,11 @@ pub async fn login_handler(
                 payload.login.as_str(),
             )
             .await?;
+
+            //if let Some(bg_task) = bg_task {
+            //    bg_task.
+            //}
+
             Ok(HttpResponse::Ok().body(()))
         } else {
             id.forget();

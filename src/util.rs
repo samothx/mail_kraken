@@ -7,10 +7,7 @@ const ROOT_GID: gid_t = 0;
 
 use crate::{strerror, UserInfo};
 use log::debug;
-use nix::{
-    libc::{gid_t, setresgid, setresuid, uid_t},
-    unistd::{getgid, getuid},
-};
+use nix::libc::{gid_t, setresgid, setresuid, uid_t};
 
 pub fn switch_to_user(root: bool) -> Result<()> {
     let (username, dest_uid, dest_gid) = if root {
