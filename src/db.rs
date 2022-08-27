@@ -158,7 +158,7 @@ pub async fn scan(mut db_conn: Conn, user: String, user_id: u64) -> Result<()> {
                                 .await?;
                         }
                         if !hdr.is_empty() {
-                            match r"insert into header (record_id, seq, name, value) values(:record_id,:seq,:name:value)"
+                            match r"insert into header (record_id, seq, name, value) values(:record_id,:seq,:name,:value)"
                                 .with(hdr.iter().enumerate().map(|(idx,hdr)| {
                                     params! {
                                         "record_id"=> record_id, 
