@@ -158,14 +158,19 @@ pub async fn scan(mut db_conn: Conn, user: String, user_id: u64) -> Result<()> {
                                 .await?;
                         }
                         if !hdr.is_empty() {
-                            r"insert into header (record_id, seq, name, value) values(:record_id,:seq,:name:value)"
+                            match r"insert into header (record_id, seq, name, value) values(:record_id,:seq,:name:value)"
                                 .with(hdr.iter().enumerate().map(|(idx,hdr)| {
                                     params! {
                                         "record_id"=> record_id, 
                                         "seq"=> idx, 
                                         "name" => hdr.0.to_owned(), 
                                         "value" => hdr.1.to_owned()}
-                                })).batch(&mut db_conn).await?
+                                })).batch(&mut db_conn).await {
+                                Ok(_) => { debug!("added headers"); }
+                                Err(e) => {
+                                    error!("failed to add headers: {:?}", e);
+                                }
+                            }
                         }
                     } else {
                         error!("init_user: failed to insert record");
