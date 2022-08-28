@@ -106,6 +106,10 @@ pub enum ImapField {
     Mailbox,
     #[strum(serialize = "mailbox-guid")]
     MailboxGuid,
+    #[strum(serialize = "text")]
+    Text,
+    #[strum(serialize = "size.physical")]
+    SizePhysical,
 }
 
 impl FromStr for ImapField {
@@ -125,6 +129,7 @@ impl FromStr for ImapField {
             "imap.envelope" | "envelope" => Ok(ImapField::ImapEnvelope),
             "mailbox" => Ok(ImapField::Mailbox),
             "mailboxguid" | "mailbox-guid" => Ok(ImapField::MailboxGuid),
+            "size.physical" => Ok(ImapField::SizePhysical),
             _ => Err(anyhow!("invalid field name {}", s)),
         }
     }

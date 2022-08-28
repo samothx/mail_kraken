@@ -5,8 +5,6 @@ use async_trait::async_trait;
 use log::debug;
 use regex::Regex;
 
-// mod single_line_parser;
-// pub use single_line_parser::SingleLineParser;
 mod generic_parser;
 pub use generic_parser::GenericParser;
 mod macro_parsers;
@@ -90,6 +88,10 @@ pub enum FetchFieldRes {
     Guid(String),
     Flags(Vec<String>),
     Mailbox(String),
+    DateSaved(String),
+    DateReceived(String),
+    DateSent(String),
+    SizePhysical(usize),
     Generic((ImapField, FieldType)),
 }
 

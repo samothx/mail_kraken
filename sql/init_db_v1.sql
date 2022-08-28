@@ -16,6 +16,8 @@ CREATE TABLE `record` (
     `uid` varchar(256) NOT NULL,
     `guid` varchar(256) NOT NULL,
     `mailbox` varchar(256) NOT NULL,
+    UNIQUE (uid,mailbox),
+    UNIQUE (guid),
     PRIMARY KEY (`id`),
     CONSTRAINT `fk_record_user_id`
         FOREIGN KEY (user_id) REFERENCES user (id)
