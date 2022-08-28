@@ -8,7 +8,10 @@ use regex::Regex;
 mod generic_parser;
 pub use generic_parser::GenericParser;
 mod macro_parsers;
-pub use macro_parsers::{FlagsParser, GuidParser, MailboxParser, UidParser};
+pub use macro_parsers::{
+    DateReceivedParser, DateSavedParser, DateSentParser, FlagsParser, GuidParser, MailboxParser,
+    SizePhysicalParser, UidParser,
+};
 
 mod hdr_parser;
 pub use hdr_parser::HdrParser;
