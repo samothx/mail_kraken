@@ -87,10 +87,10 @@ macro_rules! string_parser {
                     if let Some(captures) = self.first_line_re.captures(line) {
                         if let Some(capture) = captures.get(1) {
                             let str_val = capture.as_str();
-                            debug!(
-                                "parse_first_field: [{}]->str got payload: {:?}",
-                                $tag, str_val
-                            );
+                            // debug!(
+                            //    "parse_first_field: [{}]->str got payload: {:?}",
+                            //    $tag, str_val
+                            //);
                             Ok(Some($res(str_val.try_to_res()?)))
                         } else {
                             Err(anyhow!(
