@@ -1,6 +1,6 @@
 use crate::doveadm::{Fetch, FetchFieldRes, FetchParams, FetchRecord, ImapField, SearchParam};
 use anyhow::{anyhow, Context, Result};
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use mysql_async::prelude::{BatchQuery, Query, Queryable, WithParams};
 use mysql_async::{params, Conn, Pool};
 use regex::Regex;
@@ -238,6 +238,16 @@ async fn process_record(
             };
             (received & RECV_FROM_HDR) == RECV_FROM_HDR
         });
+        if !found {
+            let mut header_names = String::new();
+            read_buf.hdr.iter().for_each(|(name, _)| {
+                header_names.push_str(format!("\"{}\" ", header_names).as_str());
+            });
+            warn!(
+                "process_record: missing from, to , subj headers, headers: {}",
+                header_names
+            );
+        }
     }
 
     if received == RECV_ALL {
@@ -318,8 +328,9 @@ async fn process_record(
         }
     } else {
         Err(anyhow!(
-            "process_record: missing FetchFieldRes: received: {:x} ",
-            received
+            "process_record: missing FetchFieldRes: received: {:x}, expected: {:x}",
+            received,
+            RECV_ALL
         ))
     }
 }

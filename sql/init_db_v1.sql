@@ -37,7 +37,7 @@ CREATE TABLE `header` (
     `record_id` bigint unsigned NOT NULL,
     `seq` mediumint unsigned NOT NULL,
     `name` varchar(256) NOT NULL,
-    `value` varchar(1024) NOT NULL,
+    `value` varchar(2048) NOT NULL,
     UNIQUE(record_id, seq),
     CONSTRAINT `fk_hdr_record_id`
         FOREIGN KEY (record_id) REFERENCES record (id)
