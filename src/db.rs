@@ -238,6 +238,11 @@ async fn process_record(
                 ));
             };
 
+        debug!(
+            "process_record: date time sent: [{}],[{}]",
+            date_time_sent, offset
+        );
+
         r"insert into record (user_id,uid,guid,mailbox,) values(:user_id,:uid,:guid,:mailbox)"
             .with(params! {
             "user_id"=>user_id,
@@ -250,7 +255,8 @@ async fn process_record(
             "dt_saved"=>read_buf.date_saved.as_str(),
             "size"=>read_buf.size_physical})
             .ignore(&mut wa.db_conn)
-            .await?;
+            .await
+            .with_context(|| "failed to insert record".to_owned())?;
         if let Some(record_id) = wa.db_conn.last_insert_id() {
             if !read_buf.flags.is_empty() {
                 r"insert into imap_flag (record_id, name) values(:record_id,:name)"
@@ -261,7 +267,8 @@ async fn process_record(
                             .map(|flag| params! {"record_id" => record_id, "name" => flag}),
                     )
                     .batch(&mut wa.db_conn)
-                    .await?;
+                    .await
+                    .with_context(|| "failed to insert imap_flags".to_owned())?;
             }
             if !read_buf.hdr.is_empty() {
                 r"insert into header (record_id, seq, name, value) values(:record_id,:seq,:name,:value)"
@@ -271,7 +278,7 @@ async fn process_record(
                                         "seq"=> idx,
                                         "name" => hdr.0.to_owned(),
                                         "value" => hdr.1.to_owned()}
-                    })).batch(&mut wa.db_conn).await?;
+                    })).batch(&mut wa.db_conn).await.with_context(|| "failed to insert headers".to_owned())?;
             }
             Ok(())
         } else {
