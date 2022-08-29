@@ -241,7 +241,7 @@ async fn process_record(
         if !found {
             let mut header_names = String::new();
             read_buf.hdr.iter().for_each(|(name, _)| {
-                header_names.push_str(format!("\"{}\" ", header_names).as_str());
+                header_names.push_str(format!("\"{}\" ", name).as_str());
             });
             warn!(
                 "process_record: missing from, to , subj headers, headers: {}",
