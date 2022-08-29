@@ -249,7 +249,7 @@ async fn process_record(
             "uid"=>read_buf.uid.as_str(),
             "guid"=>read_buf.guid.as_str(),
             "mailbox"=>read_buf.mailbox.as_str(),
-            "dt_sent"=>date_time_sent.as_str().parse::<u32>()?,
+            "dt_sent"=>date_time_sent.as_str().parse::<i32>()?,
             "tz_sent"=>offset.as_str(),
             "dt_recv"=>read_buf.date_received.as_str(),
             "dt_saved"=>read_buf.date_saved.as_str(),
