@@ -24,7 +24,7 @@ CREATE TABLE `record` (
     `mail_to` varchar(256) NOT NULL,
     `mail_from` varchar(256) NOT NULL,
     `mail_subj` varchar(256) NOT NULL,
-    UNIQUE (uid,mailbox),
+    UNIQUE (user_id,uid,mailbox),
     UNIQUE (guid),
     PRIMARY KEY (`id`),
     CONSTRAINT `fk_record_user_id`
