@@ -168,7 +168,7 @@ async fn process_record(
 ) -> Result<()> {
     let mut received = 0;
     for item in record.into_iter() {
-        debug!("process_record: got {:?}", item);
+        // debug!("process_record: got {:?}", item);
         match item {
             FetchFieldRes::Uid(value) => {
                 read_buf.uid = value;
