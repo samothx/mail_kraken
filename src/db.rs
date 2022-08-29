@@ -243,7 +243,8 @@ async fn process_record(
             date_time_sent, offset
         );
 
-        r"insert into record (user_id,uid,guid,mailbox,) values(:user_id,:uid,:guid,:mailbox)"
+        r#"insert into record (user_id,uid,guid,mailbox,dt_sent,tz_sent,dt_recv,dt_saved,size)
+        values(:user_id,:uid,:guid,:mailbox,:dt_sent,:tz_sent,:dt_recv,:dt_saved,:size)"#
             .with(params! {
             "user_id"=>user_id,
             "uid"=>read_buf.uid.as_str(),
