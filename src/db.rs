@@ -20,10 +20,14 @@ pub async fn init_db(pool: Pool) -> Result<()> {
         // database is uninitialized
         info!("initializing database");
         let db_init_script = String::from_utf8_lossy(include_bytes!("../sql/init_db_v1.sql"));
-        db_init_script
-            .ignore(&mut db_conn)
-            .await
-            .with_context(|| "failed to initialize database")?;
+        match db_init_script.ignore(&mut db_conn).await {
+            Ok(_) => (),
+            Err(e) => {
+                error!("failed to initialize database: {:?}", e);
+                return Err(e).with_context(|| "failed to initialize database: {:?}", e);
+            }
+        }
+
         r"insert into db_ver (version) values(:version)"
             .with(params! { "version" => DB_VERSION })
             .ignore(&mut db_conn)
