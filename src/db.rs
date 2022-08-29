@@ -250,8 +250,8 @@ async fn process_record(
             "uid"=>read_buf.uid.as_str(),
             "guid"=>read_buf.guid.as_str(),
             "mailbox"=>read_buf.mailbox.as_str(),
-            "dt_sent"=>offset.as_str().parse::<f32>().with_context(|| format!("failed to parse [{}] to f32", offset.as_str()))?,
-            "tz_sent"=>offset.as_str(),
+            "dt_sent"=>date_time_sent,
+            "tz_sent"=>offset.as_str().parse::<f32>().with_context(|| format!("failed to parse [{}] to f32", offset.as_str()))?,
             "dt_recv"=>read_buf.date_received.as_str(),
             "dt_saved"=>read_buf.date_saved.as_str(),
             "size"=>read_buf.size_physical})
