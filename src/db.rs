@@ -115,6 +115,12 @@ const RECV_SIZE: u32 = 0x20;
 const RECV_MAILBOX: u32 = 0x40;
 const RECV_FLAGS: u32 = 0x80;
 const RECV_HDRS: u32 = 0x100;
+const RECV_FROM: u32 = 0x200;
+const RECV_TO: u32 = 0x400;
+const RECV_SUBJ: u32 = 0x800;
+
+const RECV_FROM_HDR: u32 = RECV_TO | RECV_FROM | RECV_SUBJ;
+
 const RECV_ALL: u32 = RECV_UID
     | RECV_GUID
     | RECV_DATE_SAVD
@@ -123,7 +129,8 @@ const RECV_ALL: u32 = RECV_UID
     | RECV_SIZE
     | RECV_MAILBOX
     | RECV_FLAGS
-    | RECV_HDRS;
+    | RECV_HDRS
+    | RECV_FROM_HDR;
 
 pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
     debug!("init_user: fetching,  id: {} ", user_id);
@@ -212,6 +219,27 @@ async fn process_record(
         }
     }
 
+    if (received & RECV_HDRS) == RECV_HDRS {
+        let found = read_buf.hdr.iter().any(|(name, value)| {
+            match name.as_str() {
+                "To" => {
+                    read_buf.to = value.to_owned();
+                    received |= RECV_TO;
+                }
+                "From" => {
+                    read_buf.from = value.to_owned();
+                    received |= RECV_FROM;
+                }
+                "Subject" => {
+                    read_buf.subj = value.to_owned();
+                    received |= RECV_SUBJ;
+                }
+                _ => (),
+            };
+            (received & RECV_FROM_HDR) == RECV_FROM_HDR
+        });
+    }
+
     if received == RECV_ALL {
         let (date_time_sent, offset) =
             if let Some(captures) = date_time_tz_regex.captures(read_buf.date_sent.as_str()) {
@@ -238,13 +266,13 @@ async fn process_record(
                 ));
             };
 
-        debug!(
-            "process_record: date time sent: [{}],[{}]",
-            date_time_sent, offset
-        );
+        // debug!(
+        //   "process_record: date time sent: [{}],[{}]",
+        //    date_time_sent, offset
+        // );
 
-        r#"insert into record (user_id,uid,guid,mailbox,dt_sent,tz_sent,dt_recv,dt_saved,size)
-        values(:user_id,:uid,:guid,:mailbox,:dt_sent,:tz_sent,:dt_recv,:dt_saved,:size)"#
+        r#"insert into record (user_id,uid,guid,mailbox,dt_sent,tz_sent,dt_recv,dt_saved,size, to, from, subj)
+        values(:user_id,:uid,:guid,:mailbox,:dt_sent,:tz_sent,:dt_recv,:dt_saved,:size,:to,:from,:subj)"#
             .with(params! {
             "user_id"=>user_id,
             "uid"=>read_buf.uid.as_str(),
@@ -254,7 +282,10 @@ async fn process_record(
             "tz_sent"=>offset.as_str().parse::<f32>().with_context(|| format!("failed to parse [{}] to f32", offset.as_str()))?,
             "dt_recv"=>read_buf.date_received.as_str(),
             "dt_saved"=>read_buf.date_saved.as_str(),
-            "size"=>read_buf.size_physical})
+            "size"=>read_buf.size_physical,
+            "to"=>read_buf.to.as_str(),
+            "from"=>read_buf.from.as_str(),
+            "subj"=>read_buf.subj.as_str()})
             .ignore(&mut wa.db_conn)
             .await
             .with_context(|| "failed to insert record".to_owned())?;
@@ -307,6 +338,9 @@ struct ReadBuf {
     date_saved: String,
     date_sent: String,
     size_physical: usize,
+    to: String,
+    from: String,
+    subj: String,
 }
 
 impl ReadBuf {
@@ -321,6 +355,9 @@ impl ReadBuf {
             date_saved: String::new(),
             date_sent: String::new(),
             size_physical: 0,
+            to: String::new(),
+            from: String::new(),
+            subj: String::new(),
         }
     }
 }

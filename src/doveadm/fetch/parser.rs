@@ -28,7 +28,7 @@ impl FetchRecord {
         parsers: &[Box<dyn Parser + Sync + Send>],
         reader: &mut Reader<'_>,
     ) -> Result<Option<FetchRecord>> {
-        debug!("FetchRecord::parse: started");
+        // debug!("FetchRecord::parse: started");
 
         if let Some(line) = reader.next_line().await? {
             if !line.ends_with(EIR) {
