@@ -315,12 +315,15 @@ async fn process_record(
             if !read_buf.hdr.is_empty() {
                 r"insert into header (record_id, seq, name, value) values(:record_id,:seq,:name,:value)"
                     .with(read_buf.hdr.iter().enumerate().map(|(idx, hdr)| {
+                        if hdr.1.len() >= 2048 {
+                            warn!("process_record: got oversized header: {}", hdr.1);   
+                        }
                         params! {
                                         "record_id"=> record_id,
                                         "seq"=> idx,
                                         "name" => hdr.0.to_owned(),
                                         "value" => hdr.1.to_owned()}
-                    })).batch(&mut wa.db_conn).await.with_context(|| "failed to insert headers".to_owned())?;
+                    })).batch(&mut wa.db_conn).await.with_context(|| "process_record: failed to insert headers".to_owned())?;
             }
             Ok(())
         } else {
