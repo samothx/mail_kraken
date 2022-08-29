@@ -154,7 +154,7 @@ pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
     let mut read_buf = ReadBuf::new();
     let mut count = 0usize;
     while let Some(record) = fetch_cmd.parse_record().await? {
-        // debug!("got record: {:?}", record);
+        debug!("got record: {:?}", record);
         count += 1;
 
         match process_record(&mut wa, user_id, record, &mut read_buf, &date_time_tz_regex).await {

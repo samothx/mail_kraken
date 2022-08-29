@@ -103,6 +103,7 @@ impl Fetch {
     }
 
     pub async fn parse_record(&mut self) -> Result<Option<FetchRecord>> {
+        debug!("parse_record: called");
         FetchRecord::parse(
             &self.parsers,
             &mut Reader::new(&mut self.stdout, &mut self.buffer, &mut self.line_count),
