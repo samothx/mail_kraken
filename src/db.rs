@@ -125,14 +125,10 @@ const RECV_ALL: u32 = RECV_UID
     | RECV_FLAGS
     | RECV_HDRS;
 
-struct Workaround {
-    db_conn: Conn,
-}
-
 pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
     debug!("init_user: fetching,  id: {} ", user_id);
 
-    let date_time_tz_regex = Regex::new(r"^(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s\(([6\)]+)\)$")?;
+    let date_time_tz_regex = Regex::new(r"^(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s\(([^)]+)\)$")?;
     let fetch_params = FetchParams::new(user)
         .add_field(ImapField::Flags)
         .add_field(ImapField::Guid)
@@ -172,7 +168,7 @@ async fn process_record(
 ) -> Result<()> {
     let mut received = 0;
     for item in record.into_iter() {
-        debug!("init_user: got {:?}", item);
+        debug!("process_record: got {:?}", item);
         match item {
             FetchFieldRes::Uid(value) => {
                 read_buf.uid = value;
@@ -222,18 +218,22 @@ async fn process_record(
                 (
                     captures
                         .get(1)
-                        .ok_or_else(|| anyhow!("failed to get date_time capture from regex"))?
+                        .ok_or_else(|| {
+                            anyhow!("process_record: failed to get date_time capture from regex")
+                        })?
                         .as_str()
                         .to_owned(),
                     captures
                         .get(2)
-                        .ok_or_else(|| anyhow!("failed to offset_time capture from regex"))?
+                        .ok_or_else(|| {
+                            anyhow!("process_record: failed to offset_time capture from regex")
+                        })?
                         .as_str()
                         .to_owned(),
                 )
             } else {
                 return Err(anyhow!(
-                    "scan: failed to parse date_sent from: {}",
+                    "process_record: failed to parse date_sent from: {}",
                     read_buf.date_sent.as_str()
                 ));
             };
@@ -275,14 +275,18 @@ async fn process_record(
             }
             Ok(())
         } else {
-            Err(anyhow!("scan:  failed to insert record"))
+            Err(anyhow!("process_record: failed to insert record"))
         }
     } else {
         Err(anyhow!(
-            "scan: missing FetchFieldRes: received: {:x} ",
+            "process_record: missing FetchFieldRes: received: {:x} ",
             received
         ))
     }
+}
+
+struct Workaround {
+    db_conn: Conn,
 }
 
 struct ReadBuf {
