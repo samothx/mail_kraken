@@ -7,7 +7,7 @@ use tokio::process::{Child, ChildStdout, Command};
 use super::{DOVEADM_CMD, MB_SIZE};
 use crate::switch_to_user;
 use params::{FetchParams, ImapField};
-use parser::{FetchRecord, GenericParser, HdrParser, Parser};
+use parser::{GenericParser, HdrParser, Parser};
 
 pub mod params;
 mod parser;
@@ -16,7 +16,7 @@ use crate::doveadm::fetch::parser::{
     SizePhysicalParser, UidParser,
 };
 
-pub use parser::FetchFieldRes;
+pub use parser::{FetchFieldRes, FetchRecord};
 
 pub struct Fetch {
     params: FetchParams,

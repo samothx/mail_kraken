@@ -1,8 +1,9 @@
-use crate::doveadm::{Fetch, FetchFieldRes, FetchParams, ImapField, SearchParam};
+use crate::doveadm::{Fetch, FetchFieldRes, FetchParams, FetchRecord, ImapField, SearchParam};
 use anyhow::{anyhow, Context, Result};
 use log::{debug, error, info};
 use mysql_async::prelude::{BatchQuery, Query, Queryable, WithParams};
 use mysql_async::{params, Conn, Pool};
+use regex::Regex;
 use tokio::task::JoinHandle;
 
 const DB_VERSION: u32 = 1;
@@ -117,8 +118,14 @@ const RECV_ALL: u32 = RECV_UID
     | RECV_FLAGS
     | RECV_HDRS;
 
-pub async fn scan(mut db_conn: Conn, user: String, user_id: u64) -> Result<()> {
+struct Workaround {
+    db_conn: Conn,
+}
+
+pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
     debug!("init_user: fetching,  id: {} ", user_id);
+
+    let date_time_tz_regex = Regex::new(r"^(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s\(([6\)]+)\)$")?;
     let fetch_params = FetchParams::new(user)
         .add_field(ImapField::Flags)
         .add_field(ImapField::Guid)
@@ -132,104 +139,169 @@ pub async fn scan(mut db_conn: Conn, user: String, user_id: u64) -> Result<()> {
         .add_search_param(SearchParam::All);
     let mut fetch_cmd = Fetch::new(fetch_params)?;
 
-    let mut guid = String::new();
-    let mut uid = String::new();
-    let mut mailbox = String::new();
-    let mut flags = Vec::new();
-    let mut hdr = Vec::new();
-    let mut date_received = String::new();
-    let mut date_saved = String::new();
-    let mut date_sent = String::new();
-    let mut size_physical = 0;
+    let mut wa = Workaround { db_conn };
 
+    let mut read_buf = ReadBuf::new();
     while let Some(record) = fetch_cmd.parse_record().await? {
         // debug!("got record: {:?}", record);
-        let mut received = 0;
-        for item in record.into_iter() {
-            debug!("init_user: got {:?}", item);
-            match item {
-                FetchFieldRes::Uid(value) => {
-                    uid = value;
-                    received |= RECV_UID;
-                }
-                FetchFieldRes::Guid(value) => {
-                    guid = value;
-                    received |= RECV_GUID;
-                }
-                FetchFieldRes::Mailbox(value) => {
-                    mailbox = value;
-                    received |= RECV_MAILBOX;
-                }
-                FetchFieldRes::Flags(value) => {
-                    flags = value;
-                    received |= RECV_FLAGS;
-                }
-                FetchFieldRes::DateReceived(value) => {
-                    date_received = value;
-                    received |= RECV_DATE_RECV
-                }
-                FetchFieldRes::DateSaved(value) => {
-                    date_saved = value;
-                    received |= RECV_DATE_SAVD;
-                }
-                FetchFieldRes::DateSent(value) => {
-                    date_sent = value;
-                    received |= RECV_DATE_SENT;
-                }
-                FetchFieldRes::SizePhysical(value) => {
-                    size_physical = value;
-                    received |= RECV_SIZE
-                }
-                FetchFieldRes::Hdr(val) => {
-                    hdr = val;
-                    received |= RECV_HDRS
-                }
-                FetchFieldRes::Generic((_imap_field, _value)) => {
-                    todo!()
-                }
-            }
-        }
-
-        if received == RECV_ALL {
-            r"insert into record (user_id,uid,guid,mailbox) values(:user_id,:uid,:guid,:mailbox)"
-                .with(params! {"user_id"=>user_id,"uid"=>uid.as_str(),"guid"=>guid.as_str(),"mailbox"=>mailbox.as_str()})
-                .ignore(&mut db_conn)
-                .await?;
-            if let Some(record_id) = db_conn.last_insert_id() {
-                if !flags.is_empty() {
-                    r"insert into imap_flag (record_id, name) values(:record_id,:name)"
-                        .with(
-                            flags
-                                .iter()
-                                .map(|flag| params! {"record_id" => record_id, "name" => flag}),
-                        )
-                        .batch(&mut db_conn)
-                        .await?;
-                }
-                if !hdr.is_empty() {
-                    match r"insert into header (record_id, seq, name, value) values(:record_id,:seq,:name,:value)"
-                        .with(hdr.iter().enumerate().map(|(idx, hdr)| {
-                            params! {
-                                        "record_id"=> record_id, 
-                                        "seq"=> idx, 
-                                        "name" => hdr.0.to_owned(), 
-                                        "value" => hdr.1.to_owned()}
-                        })).batch(&mut db_conn).await {
-                        Ok(_) => { debug!("added headers"); }
-                        Err(e) => {
-                            error!("failed to add headers: {:?}", e);
-                            continue;
-                        }
-                    }
-                }
-            } else {
-                error!("init_user: failed to insert record");
+        match process_record(&mut wa, user_id, record, &mut read_buf, &date_time_tz_regex).await {
+            Ok(_) => (),
+            Err(e) => {
+                error!("scan: process_record failed: {:?}", e);
                 continue;
             }
-        } else {
-            error!("missing FetchFieldRes: received: {:x} ", received)
+        };
+    }
+    debug!("scan: done parsing records");
+    Ok(())
+}
+
+async fn process_record(
+    wa: &mut Workaround,
+    user_id: u64,
+    record: FetchRecord,
+    read_buf: &mut ReadBuf,
+    date_time_tz_regex: &Regex,
+) -> Result<()> {
+    let mut received = 0;
+    for item in record.into_iter() {
+        debug!("init_user: got {:?}", item);
+        match item {
+            FetchFieldRes::Uid(value) => {
+                read_buf.uid = value;
+                received |= RECV_UID;
+            }
+            FetchFieldRes::Guid(value) => {
+                read_buf.guid = value;
+                received |= RECV_GUID;
+            }
+            FetchFieldRes::Mailbox(value) => {
+                read_buf.mailbox = value;
+                received |= RECV_MAILBOX;
+            }
+            FetchFieldRes::Flags(value) => {
+                read_buf.flags = value;
+                received |= RECV_FLAGS;
+            }
+            FetchFieldRes::DateReceived(value) => {
+                read_buf.date_received = value;
+                received |= RECV_DATE_RECV
+            }
+            FetchFieldRes::DateSaved(value) => {
+                read_buf.date_saved = value;
+                received |= RECV_DATE_SAVD;
+            }
+            FetchFieldRes::DateSent(value) => {
+                read_buf.date_sent = value;
+                received |= RECV_DATE_SENT;
+            }
+            FetchFieldRes::SizePhysical(value) => {
+                read_buf.size_physical = value;
+                received |= RECV_SIZE
+            }
+            FetchFieldRes::Hdr(val) => {
+                read_buf.hdr = val;
+                received |= RECV_HDRS
+            }
+            FetchFieldRes::Generic((_imap_field, _value)) => {
+                todo!()
+            }
         }
     }
-    debug!("done parsing records");
-    Ok(())
+
+    if received == RECV_ALL {
+        let (date_time_sent, offset) =
+            if let Some(captures) = date_time_tz_regex.captures(read_buf.date_sent.as_str()) {
+                (
+                    captures
+                        .get(1)
+                        .ok_or_else(|| anyhow!("failed to get date_time capture from regex"))?
+                        .as_str()
+                        .to_owned(),
+                    captures
+                        .get(2)
+                        .ok_or_else(|| anyhow!("failed to offset_time capture from regex"))?
+                        .as_str()
+                        .to_owned(),
+                )
+            } else {
+                return Err(anyhow!(
+                    "scan: failed to parse date_sent from: {}",
+                    read_buf.date_sent.as_str()
+                ));
+            };
+
+        r"insert into record (user_id,uid,guid,mailbox,) values(:user_id,:uid,:guid,:mailbox)"
+            .with(params! {
+            "user_id"=>user_id,
+            "uid"=>read_buf.uid.as_str(),
+            "guid"=>read_buf.guid.as_str(),
+            "mailbox"=>read_buf.mailbox.as_str(),
+            "dt_sent"=>date_time_sent.as_str().parse::<u32>()?,
+            "tz_sent"=>offset.as_str(),
+            "dt_recv"=>read_buf.date_received.as_str(),
+            "dt_saved"=>read_buf.date_saved.as_str(),
+            "size"=>read_buf.size_physical})
+            .ignore(&mut wa.db_conn)
+            .await?;
+        if let Some(record_id) = wa.db_conn.last_insert_id() {
+            if !read_buf.flags.is_empty() {
+                r"insert into imap_flag (record_id, name) values(:record_id,:name)"
+                    .with(
+                        read_buf
+                            .flags
+                            .iter()
+                            .map(|flag| params! {"record_id" => record_id, "name" => flag}),
+                    )
+                    .batch(&mut wa.db_conn)
+                    .await?;
+            }
+            if !read_buf.hdr.is_empty() {
+                r"insert into header (record_id, seq, name, value) values(:record_id,:seq,:name,:value)"
+                    .with(read_buf.hdr.iter().enumerate().map(|(idx, hdr)| {
+                        params! {
+                                        "record_id"=> record_id,
+                                        "seq"=> idx,
+                                        "name" => hdr.0.to_owned(),
+                                        "value" => hdr.1.to_owned()}
+                    })).batch(&mut wa.db_conn).await?;
+            }
+            Ok(())
+        } else {
+            Err(anyhow!("scan:  failed to insert record"))
+        }
+    } else {
+        Err(anyhow!(
+            "scan: missing FetchFieldRes: received: {:x} ",
+            received
+        ))
+    }
+}
+
+struct ReadBuf {
+    guid: String,
+    uid: String,
+    mailbox: String,
+    flags: Vec<String>,
+    hdr: Vec<(String, String)>,
+    date_received: String,
+    date_saved: String,
+    date_sent: String,
+    size_physical: usize,
+}
+
+impl ReadBuf {
+    pub fn new() -> ReadBuf {
+        ReadBuf {
+            guid: String::new(),
+            uid: String::new(),
+            mailbox: String::new(),
+            flags: Vec::new(),
+            hdr: Vec::new(),
+            date_received: String::new(),
+            date_saved: String::new(),
+            date_sent: String::new(),
+            size_physical: 0,
+        }
+    }
 }

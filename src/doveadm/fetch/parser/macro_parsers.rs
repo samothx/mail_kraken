@@ -3,6 +3,7 @@ use crate::doveadm::fetch::Reader;
 use crate::doveadm::ImapField;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
+use chrono::{DateTime, FixedOffset, NaiveDateTime};
 use log::debug;
 use regex::Regex;
 
@@ -21,6 +22,23 @@ impl TryToRes<usize> for &str {
         Ok(self.parse()?)
     }
 }
+
+/*
+impl TryToRes<NaiveDateTime> for &str {
+    fn try_to_res(self) -> Result<NaiveDateTime> {
+        Ok(NaiveDateTime::parse_from_str(self, "%Y-%m-%d %H:%M:%S")?)
+    }
+}
+
+impl TryToRes<DateTime<FixedOffset>> for &str {
+    fn try_to_res(self) -> Result<DateTime<FixedOffset>> {
+        Ok(DateTime::<FixedOffset>::parse_from_str(
+            self,
+            "%Y-%m-%d %H:%M:%S (%z)",
+        )?)
+    }
+}
+*/
 
 impl TryToRes<Vec<String>> for &str {
     fn try_to_res(self) -> Result<Vec<String>> {
