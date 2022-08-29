@@ -152,8 +152,11 @@ pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
     let mut wa = Workaround { db_conn };
 
     let mut read_buf = ReadBuf::new();
+    let mut count = 0usize;
     while let Some(record) = fetch_cmd.parse_record().await? {
         // debug!("got record: {:?}", record);
+        count += 1;
+
         match process_record(&mut wa, user_id, record, &mut read_buf, &date_time_tz_regex).await {
             Ok(_) => (),
             Err(e) => {
@@ -161,6 +164,9 @@ pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
                 continue;
             }
         };
+        if count % 20 == 0 {
+            debug!("scan: processed {} messages", count);
+        }
     }
     debug!("scan: done parsing records");
     Ok(())
@@ -316,13 +322,12 @@ async fn process_record(
                 r"insert into header (record_id, seq, name, value) values(:record_id,:seq,:name,:value)"
                     .with(read_buf.hdr.iter().enumerate().map(|(idx, hdr)| {
                         if hdr.1.len() >= 2048 {
-                            warn!("process_record: got oversized header: {}", hdr.1);   
+                            warn!("process_record: got oversized header: name: [{}] size: {} \n[{}]", hdr.0, hdr.1.len(), hdr.1);   
                         }
-                        params! {
-                                        "record_id"=> record_id,
-                                        "seq"=> idx,
-                                        "name" => hdr.0.to_owned(),
-                                        "value" => hdr.1.to_owned()}
+                        params! {   "record_id"=> record_id,
+                                    "seq"=> idx,
+                                    "name" => hdr.0.to_owned(),
+                                    "value" => hdr.1.to_owned()}
                     })).batch(&mut wa.db_conn).await.with_context(|| "process_record: failed to insert headers".to_owned())?;
             }
             Ok(())
