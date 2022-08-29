@@ -23,8 +23,11 @@ pub async fn init_db(pool: Pool) -> Result<()> {
         match db_init_script.ignore(&mut db_conn).await {
             Ok(_) => (),
             Err(e) => {
-                error!("failed to initialize database: {:?}", e);
-                return Err(e).with_context(|| "failed to initialize database: {:?}", e);
+                let err_str = e.to_string();
+                error!("failed to initialize database: {:?}", err_str.as_str());
+                return Err(e).with_context(|| {
+                    format!("failed to initialize database: {:?}", err_str.as_str())
+                });
             }
         }
 
