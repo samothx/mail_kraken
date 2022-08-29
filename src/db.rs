@@ -168,7 +168,16 @@ pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
             debug!("scan: processed {} messages", count);
         }
     }
-    debug!("scan: done parsing records");
+
+    let status = fetch_cmd
+        .get_exit_status()
+        .await
+        .with_context(|| "failed to retrieve exit status from fetch process".to_owned())?;
+    info!(
+        "scan: done parsing records: fetch exit status: {}",
+        status.code().unwrap_or(-1)
+    );
+
     Ok(())
 }
 
