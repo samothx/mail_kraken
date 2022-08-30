@@ -21,9 +21,9 @@ CREATE TABLE `record` (
     `dt_recv` DATETIME NOT NULL,
     `dt_saved` DATETIME NOT NULL,
     `size` bigint unsigned NOT NULL,
-    `mail_to` varchar(256) NOT NULL,
-    `mail_from` varchar(256) NOT NULL,
-    `mail_subj` varchar(256) NOT NULL,
+    `mail_to` varchar(1024) NOT NULL,
+    `mail_from` varchar(1024) NOT NULL,
+    `mail_subj` TEXT NOT NULL,
     UNIQUE (user_id,uid,mailbox),
     UNIQUE (guid),
     PRIMARY KEY (`id`),
@@ -37,7 +37,7 @@ CREATE TABLE `header` (
     `record_id` bigint unsigned NOT NULL,
     `seq` mediumint unsigned NOT NULL,
     `name` varchar(256) NOT NULL,
-    `value` varchar(2048) NOT NULL,
+    `value` TEXT NOT NULL,
     UNIQUE(record_id, seq),
     CONSTRAINT `fk_hdr_record_id`
         FOREIGN KEY (record_id) REFERENCES record (id)
