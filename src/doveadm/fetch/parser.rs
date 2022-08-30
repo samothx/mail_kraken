@@ -31,6 +31,7 @@ impl FetchRecord {
         debug!("FetchRecord::parse: started");
 
         if let Some(line) = reader.next_line().await? {
+            debug!("got line: {}", line);
             if !line.ends_with(EIR) {
                 reader.unconsume();
             }
