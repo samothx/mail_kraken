@@ -49,5 +49,6 @@ features = ["paw"]
 
 [dependencies.mod_logger]
 version = "0.8.1"
+features = ["config"]
 # path = "../ModuleLogger"
 
