@@ -63,7 +63,10 @@ impl StdoutReader {
 
                         if found {
                             // found before the end of the buffer
-                            debug!("next_line: found @offset {}", count);
+                            debug!(
+                                "next_line: found @offset {}, {} bytes ",
+                                self.read_pos, count
+                            );
                             if count > 0 {
                                 self.line_buf.push_str(&*String::from_utf8_lossy(
                                     &self.buffer[self.read_pos..self.read_pos + count],
@@ -74,22 +77,28 @@ impl StdoutReader {
                             return Ok(Some(self.line_buf.as_str()));
                         } else {
                             // not found before the end of the buffer
+                            debug!("next_line: not found, flushing buffer to line buffer");
                             self.line_buf.push_str(&*String::from_utf8_lossy(
                                 &self.buffer[self.read_pos..self.end_pos],
                             ));
                             self.read_pos = self.end_pos;
                         }
                     } else {
+                        debug!("next_line: filling buffer");
                         self.end_pos = self.stream.read(&mut self.buffer[0..BUFF_SIZE]).await?;
                         if self.end_pos == 0 {
                             self.finished = true;
+                            debug!("next_line: stream is finished");
                             if self.line_buf.is_empty() {
+                                debug!("next_line: return None");
                                 return Ok(None);
                             } else {
                                 self.line_count += 1;
+                                debug!("next_line: return previosl parsed bytes");
                                 return Ok(Some(self.line_buf.as_str()));
                             }
                         } else {
+                            debug!("next_line: buffer refilled to {}", self.end_pos);
                             self.read_pos = 0;
                         }
                     }
