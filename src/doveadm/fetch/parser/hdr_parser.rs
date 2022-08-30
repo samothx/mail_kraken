@@ -75,7 +75,9 @@ impl Parser for HdrParser {
                     } else {
                         return Err(anyhow!("hdr regex failed to match in line '{}'", line));
                     }
+                    trace!("parse_first_field: done with line");
                 }
+                trace!("parse_first_field: done with lines");
             } else {
                 debug!("first line re did not match {:?}", line);
                 return Err(anyhow!(
