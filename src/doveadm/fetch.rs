@@ -25,7 +25,7 @@ pub struct Fetch {
     params: FetchParams,
     child: Child,
     stdout: BufReader<ChildStdout>,
-    stderr_task: JoinHandle<()>,
+    // stderr_task: JoinHandle<()>,
     line_count: usize,
     buffer: String,
     parsers: Vec<Box<dyn Parser + Sync + Send>>,
@@ -44,7 +44,7 @@ impl Fetch {
             .args(params.to_args()?)
             // .stdin(Stdio::null())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped()) // TODO: do something with this ?
+            .stderr(Stdio::inherit()) // TODO: do something with this ?
             .spawn()
             .with_context(|| "failed to spawn doveadm fetch command".to_owned())?;
         // TODO: set userid back to nobody
@@ -58,28 +58,28 @@ impl Fetch {
             }
         };
 
-        let stderr_task = match child.stderr.take() {
-            Some(stdout) => {
-                let mut reader = BufReader::with_capacity(STDOUT_BUF_SIZE, stdout);
-                tokio::spawn(async move {
-                    let mut line = String::new();
-                    while let Ok(bytes) = reader.read_line(&mut line).await {
-                        if bytes > 0 {
-                            error!("fetch stderr: {}", line);
-                            line.clear();
-                        } else {
-                            break;
-                        }
+        /*        let stderr_task = match child.stderr.take() {
+                    Some(stdout) => {
+                        let mut reader = BufReader::with_capacity(STDOUT_BUF_SIZE, stdout);
+                        tokio::spawn(async move {
+                            let mut line = String::new();
+                            while let Ok(bytes) = reader.read_line(&mut line).await {
+                                if bytes > 0 {
+                                    error!("fetch stderr: {}", line);
+                                    line.clear();
+                                } else {
+                                    break;
+                                }
+                            }
+                        })
                     }
-                })
-            }
-            None => {
-                return Err(anyhow!(
-                    "unable to retrieve stdout handle for fetch command"
-                ))
-            }
-        };
-
+                    None => {
+                        return Err(anyhow!(
+                            "unable to retrieve stdout handle for fetch command"
+                        ))
+                    }
+                };
+        */
         let mut parsers: Vec<Box<dyn Parser + Sync + Send>> = Vec::new();
         for field in params.fields() {
             parsers.push(match field {
@@ -114,7 +114,6 @@ impl Fetch {
             params,
             child,
             stdout,
-            stderr_task,
             line_count: 0,
             buffer: String::new(),
             parsers,

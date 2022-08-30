@@ -296,10 +296,10 @@ async fn process_record(
             date_time_sent,
             offset
         );
-
-        r#"insert into record (user_id,uid,guid,mailbox,dt_sent,tz_sent,dt_recv,dt_saved,size,mail_to,mail_from,mail_subj)
+        if do_insert {
+            r#"insert into record (user_id,uid,guid,mailbox,dt_sent,tz_sent,dt_recv,dt_saved,size,mail_to,mail_from,mail_subj)
  values(:user_id,:uid,:guid,:mailbox,:dt_sent,:tz_sent,:dt_recv,:dt_saved,:size,:to,:from,:subj)"#
-            .with(params! {
+                .with(params! {
             "user_id"=>user_id,
             "uid"=>read_buf.uid.as_str(),
             "guid"=>read_buf.guid.as_str(),
@@ -312,37 +312,40 @@ async fn process_record(
             "to"=>read_buf.to.as_str(),
             "from"=>read_buf.from.as_str(),
             "subj"=>read_buf.subj.as_str()})
-            .ignore(&mut wa.db_conn)
-            .await
-            .with_context(|| "failed to insert record".to_owned())?;
-        if let Some(record_id) = wa.db_conn.last_insert_id() {
-            if !read_buf.flags.is_empty() {
-                r"insert into imap_flag (record_id, name) values(:record_id,:name)"
-                    .with(
-                        read_buf
-                            .flags
-                            .iter()
-                            .map(|flag| params! {"record_id" => record_id, "name" => flag}),
-                    )
-                    .batch(&mut wa.db_conn)
-                    .await
-                    .with_context(|| "failed to insert imap_flags".to_owned())?;
-            }
-            if !read_buf.hdr.is_empty() {
-                r"insert into header (record_id, seq, name, value) values(:record_id,:seq,:name,:value)"
-                    .with(read_buf.hdr.iter().enumerate().map(|(idx, hdr)| {
-                        if hdr.1.len() >= 2048 {
-                            warn!("process_record: got oversized header: name: [{}] size: {} \n[{}]", hdr.0, hdr.1.len(), hdr.1);   
-                        }
-                        params! {   "record_id"=> record_id,
+                .ignore(&mut wa.db_conn)
+                .await
+                .with_context(|| "failed to insert record".to_owned())?;
+            if let Some(record_id) = wa.db_conn.last_insert_id() {
+                if !read_buf.flags.is_empty() {
+                    r"insert into imap_flag (record_id, name) values(:record_id,:name)"
+                        .with(
+                            read_buf
+                                .flags
+                                .iter()
+                                .map(|flag| params! {"record_id" => record_id, "name" => flag}),
+                        )
+                        .batch(&mut wa.db_conn)
+                        .await
+                        .with_context(|| "failed to insert imap_flags".to_owned())?;
+                }
+                if !read_buf.hdr.is_empty() {
+                    r"insert into header (record_id, seq, name, value) values(:record_id,:seq,:name,:value)"
+                        .with(read_buf.hdr.iter().enumerate().map(|(idx, hdr)| {
+                            if hdr.1.len() >= 2048 {
+                                warn!("process_record: got oversized header: name: [{}] size: {} \n[{}]", hdr.0, hdr.1.len(), hdr.1);
+                            }
+                            params! {   "record_id"=> record_id,
                                     "seq"=> idx,
                                     "name" => hdr.0.to_owned(),
                                     "value" => hdr.1.to_owned()}
-                    })).batch(&mut wa.db_conn).await.with_context(|| "process_record: failed to insert headers".to_owned())?;
+                        })).batch(&mut wa.db_conn).await.with_context(|| "process_record: failed to insert headers".to_owned())?;
+                }
+                Ok(())
+            } else {
+                Err(anyhow!("process_record: failed to insert record"))
             }
-            Ok(())
         } else {
-            Err(anyhow!("process_record: failed to insert record"))
+            debug!("skipping inserts");
         }
     } else {
         Err(anyhow!(
