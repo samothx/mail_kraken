@@ -42,7 +42,7 @@ impl Fetch {
             .args(params.to_args()?)
             // .stdin(Stdio::null())
             .stdout(Stdio::piped())
-            .stderr(Stdio::inherit()) // TODO: do something with this ?
+            // .stderr(Stdio::inherit()) // TODO: do something with this ?
             .spawn()
             .with_context(|| "failed to spawn doveadm fetch command".to_owned())?;
         // TODO: set userid back to nobody
