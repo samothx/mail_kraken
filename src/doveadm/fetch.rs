@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context, Result};
-use log::debug;
+use log::{debug, trace};
 use std::process::{ExitStatus, Stdio};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::process::{Child, ChildStdout, Command};
@@ -157,11 +157,14 @@ impl<'a> Reader<'a> {
     }
 
     async fn next_line(&mut self) -> Result<Option<&str>> {
+        trace!("next_line: called");
         if !self.consumed {
             self.consumed = true;
+            trace!("next_line: returning unconsumed buffer");
             Ok(Some(self.buffer))
         } else {
             self.buffer.clear();
+            trace!("next_line: reading line");
             if self
                 .stream
                 .read_line(self.buffer)
@@ -169,9 +172,11 @@ impl<'a> Reader<'a> {
                 .with_context(|| "failed to read line from doveadm fetch stdout".to_owned())?
                 == 0
             {
+                trace!("next_line: got nothing");
                 Ok(None)
             } else {
                 *self.line_count += 1;
+                trace!("next_line: returning buffer");
                 Ok(Some(self.buffer))
             }
         }
