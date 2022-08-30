@@ -7,6 +7,7 @@ use regex::Regex;
 use tokio::task::JoinHandle;
 
 const DB_VERSION: u32 = 1;
+const DO_INSERT: bool = false;
 
 pub async fn init_db(pool: Pool) -> Result<()> {
     debug!("init: entered");
@@ -296,7 +297,7 @@ async fn process_record(
             date_time_sent,
             offset
         );
-        if do_insert {
+        if DO_INSERT {
             r#"insert into record (user_id,uid,guid,mailbox,dt_sent,tz_sent,dt_recv,dt_saved,size,mail_to,mail_from,mail_subj)
  values(:user_id,:uid,:guid,:mailbox,:dt_sent,:tz_sent,:dt_recv,:dt_saved,:size,:to,:from,:subj)"#
                 .with(params! {
@@ -346,6 +347,7 @@ async fn process_record(
             }
         } else {
             debug!("skipping inserts");
+            Ok(())
         }
     } else {
         Err(anyhow!(
