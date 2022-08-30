@@ -190,9 +190,12 @@ impl<'a> Reader<'a> {
             Ok(Some(self.buffer))
         } else {
             self.buffer.clear();
+            let buf = self.stream.buffer();
+            let found = buf.iter().any(|curr| *curr == 0xAu8);
             debug!(
-                "next_line: reading line, buffered: {}",
-                self.stream.buffer().len()
+                "next_line: reading line, buffered: {}, found {}",
+                buf.len(),
+                found
             );
             if self
                 .stream
