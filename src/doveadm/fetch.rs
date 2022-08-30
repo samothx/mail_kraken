@@ -190,7 +190,7 @@ impl<'a> Reader<'a> {
             Ok(Some(self.buffer))
         } else {
             self.buffer.clear();
-            trace!(
+            debug!(
                 "next_line: reading line, buffered: {}",
                 self.stream.buffer().len()
             );
