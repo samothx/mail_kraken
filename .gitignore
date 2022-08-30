@@ -4,4 +4,5 @@ Cargo.lock
 /*.iml
 /*.hide
 /cfg
+/data
 .*.swp
