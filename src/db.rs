@@ -1,6 +1,6 @@
 use crate::doveadm::{Fetch, FetchFieldRes, FetchParams, FetchRecord, ImapField, SearchParam};
 use anyhow::{anyhow, Context, Result};
-use log::{debug, error, info, warn};
+use log::{debug, error, info, trace, warn};
 use mysql_async::prelude::{BatchQuery, Query, Queryable, WithParams};
 use mysql_async::{params, Conn, Pool};
 use regex::Regex;
@@ -154,7 +154,7 @@ pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
     let mut read_buf = ReadBuf::new();
     let mut count = 0usize;
     while let Some(record) = fetch_cmd.parse_record().await? {
-        debug!("got record: {:?}", record);
+        trace!("got record: {:?}", record);
         count += 1;
 
         match process_record(&mut wa, user_id, record, &mut read_buf, &date_time_tz_regex).await {
@@ -291,10 +291,11 @@ async fn process_record(
                 ));
             };
 
-        // debug!(
-        //   "process_record: date time sent: [{}],[{}]",
-        //    date_time_sent, offset
-        // );
+        trace!(
+            "process_record: date time sent: [{}],[{}]",
+            date_time_sent,
+            offset
+        );
 
         r#"insert into record (user_id,uid,guid,mailbox,dt_sent,tz_sent,dt_recv,dt_saved,size,mail_to,mail_from,mail_subj)
  values(:user_id,:uid,:guid,:mailbox,:dt_sent,:tz_sent,:dt_recv,:dt_saved,:size,:to,:from,:subj)"#

@@ -3,7 +3,7 @@ use crate::doveadm::fetch::parser::{FetchFieldRes, Parser, LINE_FEED};
 use crate::doveadm::fetch::Reader;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
-use log::debug;
+use log::{debug, trace};
 use regex::Regex;
 
 // TODO: must support duplicate keys - go back to Vec instead of hashmap or
@@ -40,6 +40,7 @@ impl Parser for HdrParser {
         reader: &mut Reader,
         _next_re: Option<&Regex>,
     ) -> Result<Option<FetchFieldRes>> {
+        trace!("parse_first_field: called");
         if let Some(line) = reader.next_line().await? {
             let line = line.trim_end_matches(LINE_FEED);
             if self.first_line_re.is_match(line) {
