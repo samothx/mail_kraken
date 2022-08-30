@@ -43,10 +43,12 @@ impl Parser for HdrParser {
         trace!("parse_first_field: called");
         if let Some(line) = reader.next_line().await? {
             let line = line.trim_end_matches(LINE_FEED);
+            trace!("parse_first_field: got line: [{}]", line);
             if self.first_line_re.is_match(line) {
                 let mut res: Vec<(String, String)> = Vec::new();
                 while let Some(line) = reader.next_line().await? {
                     let line = line.trim_end_matches(LINE_FEED);
+                    trace!("parse_first_field: got next line: [{}]", line);
                     if let Some(captures) = self.subseq_line_re.captures(line) {
                         if let Some(no_tag) = captures.get(4) {
                             let add_val = no_tag.as_str();
