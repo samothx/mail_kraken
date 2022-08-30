@@ -7,7 +7,7 @@ use regex::Regex;
 use tokio::task::JoinHandle;
 
 const DB_VERSION: u32 = 1;
-const DO_INSERT: bool = false;
+const DO_INSERT: bool = true;
 
 pub async fn init_db(pool: Pool) -> Result<()> {
     debug!("init: entered");
