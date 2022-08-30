@@ -63,8 +63,13 @@ impl Fetch {
                 let mut reader = BufReader::with_capacity(STDOUT_BUF_SIZE, stdout);
                 tokio::spawn(async move {
                     let mut line = String::new();
-                    while let Ok(_) = reader.read_line(&mut line).await {
-                        error!("fetch stderr: {}", line);
+                    while let Ok(bytes) = reader.read_line(&mut line).await {
+                        if bytes > 0 {
+                            error!("fetch stderr: {}", line);
+                            line.clear();
+                        } else {
+                            break;
+                        }
                     }
                 })
             }
