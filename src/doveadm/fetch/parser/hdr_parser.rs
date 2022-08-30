@@ -1,6 +1,6 @@
 use crate::doveadm::fetch::params::ImapField;
 use crate::doveadm::fetch::parser::{FetchFieldRes, Parser, LINE_FEED};
-use crate::doveadm::fetch::Reader;
+use crate::doveadm::fetch::stdout_reader::StdoutReader;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use log::{debug, trace};
@@ -37,7 +37,7 @@ impl Parser for HdrParser {
 
     async fn parse_first_field(
         &self,
-        reader: &mut Reader,
+        reader: &mut StdoutReader,
         _next_re: Option<&Regex>,
     ) -> Result<Option<FetchFieldRes>> {
         trace!("parse_first_field: called");
