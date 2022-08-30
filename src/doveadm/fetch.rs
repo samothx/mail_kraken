@@ -16,6 +16,8 @@ use crate::doveadm::fetch::parser::{
     SizePhysicalParser, UidParser,
 };
 
+const STDOUT_BUF_SIZE: usize = 1024 * 1024 * 10; // 10MB
+
 pub use parser::{FetchFieldRes, FetchRecord};
 
 pub struct Fetch {
@@ -46,7 +48,7 @@ impl Fetch {
         // TODO: set userid back to nobody
         switch_to_user(false)?;
         let stdout = match child.stdout.take() {
-            Some(stdout) => BufReader::new(stdout),
+            Some(stdout) => BufReader::with_capacity(STDOUT_BUF_SIZE, stdout),
             None => {
                 return Err(anyhow!(
                     "unable to retrieve stdout handle for fetch command"
