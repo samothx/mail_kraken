@@ -17,7 +17,7 @@ use crate::doveadm::fetch::parser::{
     SizePhysicalParser, UidParser,
 };
 
-const STDOUT_BUF_SIZE: usize = 1024 * 1024 * 10; // 10MB
+const STDOUT_BUF_SIZE: usize = 1024 * 1024 * 100; // 10MB
 
 pub use parser::{FetchFieldRes, FetchRecord};
 
