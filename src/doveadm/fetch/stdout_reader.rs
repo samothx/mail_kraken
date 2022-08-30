@@ -5,7 +5,7 @@ use tokio::process::ChildStdout;
 
 const BUFF_SIZE: usize = 1024 * 1024;
 
-pub struct StdoutReader {
+pub struct StdoutLineReader {
     buffer: Box<[u8; BUFF_SIZE]>,
     line_buf: String,
     consumed: bool,
@@ -15,9 +15,9 @@ pub struct StdoutReader {
     read_pos: usize,
     end_pos: usize,
 }
-impl StdoutReader {
-    pub fn new(stream: ChildStdout) -> StdoutReader {
-        StdoutReader {
+impl StdoutLineReader {
+    pub fn new(stream: ChildStdout) -> StdoutLineReader {
+        StdoutLineReader {
             stream,
             read_pos: BUFF_SIZE,
             end_pos: BUFF_SIZE,
@@ -34,26 +34,26 @@ impl StdoutReader {
     }
 
     pub(crate) async fn next_line(&mut self) -> Result<Option<&str>> {
-        debug!("next_line: called");
+        trace!("next_line: called");
         if !self.consumed {
-            debug!("next_line: returning unconsumed buffer");
+            trace!("next_line: returning unconsumed buffer");
             self.consumed = true;
             Ok(Some(self.line_buf.as_str()))
         } else {
             if self.finished {
-                debug!("next_line: stream is finished");
+                trace!("next_line: stream is finished");
                 Ok(None)
             } else {
                 self.line_buf.clear();
                 loop {
                     if self.read_pos < self.end_pos {
-                        debug!("next_line: parsing buffer");
+                        trace!("next_line: parsing buffer");
                         let mut count = 0;
                         let found = self.buffer[self.read_pos..self.end_pos]
                             .iter()
                             .enumerate()
                             .any(|(idx, ch)| {
-                                if *ch == 0xAu8 {
+                                if *ch == 0xA {
                                     count = idx;
                                     true
                                 } else {
@@ -63,9 +63,10 @@ impl StdoutReader {
 
                         if found {
                             // found before the end of the buffer
-                            debug!(
+                            trace!(
                                 "next_line: found @offset {}, {} bytes ",
-                                self.read_pos, count
+                                self.read_pos,
+                                count
                             );
                             if count > 0 {
                                 self.line_buf.push_str(&*String::from_utf8_lossy(
@@ -77,28 +78,28 @@ impl StdoutReader {
                             return Ok(Some(self.line_buf.as_str()));
                         } else {
                             // not found before the end of the buffer
-                            debug!("next_line: not found, flushing buffer to line buffer");
+                            trace!("next_line: not found, flushing buffer to line buffer");
                             self.line_buf.push_str(&*String::from_utf8_lossy(
                                 &self.buffer[self.read_pos..self.end_pos],
                             ));
                             self.read_pos = self.end_pos;
                         }
                     } else {
-                        debug!("next_line: filling buffer");
+                        trace!("next_line: filling buffer");
                         self.end_pos = self.stream.read(&mut self.buffer[0..BUFF_SIZE]).await?;
                         if self.end_pos == 0 {
                             self.finished = true;
-                            debug!("next_line: stream is finished");
+                            trace!("next_line: stream is finished");
                             if self.line_buf.is_empty() {
-                                debug!("next_line: return None");
+                                trace!("next_line: return None");
                                 return Ok(None);
                             } else {
                                 self.line_count += 1;
-                                debug!("next_line: return previosl parsed bytes");
+                                trace!("next_line: return previously parsed bytes");
                                 return Ok(Some(self.line_buf.as_str()));
                             }
                         } else {
-                            debug!("next_line: buffer refilled to {}", self.end_pos);
+                            trace!("next_line: buffer refilled to {}", self.end_pos);
                             self.read_pos = 0;
                         }
                     }

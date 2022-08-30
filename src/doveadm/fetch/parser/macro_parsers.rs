@@ -1,4 +1,4 @@
-use crate::doveadm::fetch::parser::{FetchFieldRes, Parser, StdoutReader};
+use crate::doveadm::fetch::parser::{FetchFieldRes, Parser, StdoutLineReader};
 use crate::doveadm::ImapField;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
@@ -76,7 +76,7 @@ macro_rules! string_parser {
 
             async fn parse_first_field(
                 &self,
-                reader: &mut StdoutReader,
+                reader: &mut StdoutLineReader,
                 _next_re: Option<&Regex>,
             ) -> Result<Option<FetchFieldRes>> {
                 trace!("parse_first_field: called for {}", $tag);

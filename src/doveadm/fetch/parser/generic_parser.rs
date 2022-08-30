@@ -1,7 +1,7 @@
 use crate::doveadm::fetch::params::ImapField;
 use crate::doveadm::fetch::parser::FieldType::MultiLine;
 use crate::doveadm::fetch::parser::{FetchFieldRes, FieldType, Parser, FORM_FEED};
-use crate::doveadm::fetch::stdout_reader::StdoutReader;
+use crate::doveadm::fetch::stdout_reader::StdoutLineReader;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use log::debug;
@@ -36,7 +36,7 @@ impl Parser for GenericParser {
 
     async fn parse_first_field(
         &self,
-        reader: &mut StdoutReader,
+        reader: &mut StdoutLineReader,
         next_re: Option<&Regex>,
     ) -> Result<Option<FetchFieldRes>> {
         if let Some(line) = reader.next_line().await? {

@@ -21,13 +21,13 @@ use crate::doveadm::fetch::parser::{
 
 const STDOUT_BUF_SIZE: usize = 1024 * 1024 * 100; // 10MB
 
-use crate::doveadm::fetch::stdout_reader::StdoutReader;
+use crate::doveadm::fetch::stdout_reader::StdoutLineReader;
 pub use parser::{FetchFieldRes, FetchRecord};
 
 pub struct Fetch {
     params: FetchParams,
     child: Child,
-    stdout: StdoutReader,
+    stdout: StdoutLineReader,
     // stderr_task: JoinHandle<()>,
     line_count: usize,
     buffer: String,
@@ -116,7 +116,7 @@ impl Fetch {
         Ok(Fetch {
             params,
             child,
-            stdout: StdoutReader::new(stdout),
+            stdout: StdoutLineReader::new(stdout),
             line_count: 0,
             buffer: String::new(),
             parsers,

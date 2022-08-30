@@ -14,7 +14,7 @@ pub use macro_parsers::{
 };
 
 mod hdr_parser;
-use crate::doveadm::fetch::stdout_reader::StdoutReader;
+use crate::doveadm::fetch::stdout_reader::StdoutLineReader;
 pub use hdr_parser::HdrParser;
 
 // const LINE_FEED: char = 0xAu8 as char;
@@ -26,7 +26,7 @@ pub struct FetchRecord(Vec<FetchFieldRes>);
 impl FetchRecord {
     pub async fn parse(
         parsers: &[Box<dyn Parser + Sync + Send>],
-        reader: &mut StdoutReader,
+        reader: &mut StdoutLineReader,
     ) -> Result<Option<FetchRecord>> {
         debug!("FetchRecord::parse: started");
 
@@ -108,14 +108,14 @@ pub trait Parser {
     // and we will have to use this parsers first line re
     async fn parse_first_field(
         &self,
-        reader: &mut StdoutReader,
+        reader: &mut StdoutLineReader,
         next_re: Option<&Regex>,
     ) -> Result<Option<FetchFieldRes>>;
     // parse a field (all lines of it) - for any field other than the first of a record an EOI
     // constitutes an error
     async fn parse_subseq_field(
         &self,
-        reader: &mut StdoutReader,
+        reader: &mut StdoutLineReader,
         next_re: Option<&Regex>,
     ) -> Result<FetchFieldRes> {
         if let Some(res) = self.parse_first_field(reader, next_re).await? {
