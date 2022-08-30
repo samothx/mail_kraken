@@ -1,8 +1,9 @@
 use anyhow::{anyhow, Context, Result};
-use log::{debug, trace};
+use log::{debug, error, trace};
 use std::process::{ExitStatus, Stdio};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::process::{Child, ChildStdout, Command};
+use tokio::task::JoinHandle;
 
 use super::{DOVEADM_CMD, MB_SIZE};
 use crate::switch_to_user;
@@ -24,6 +25,7 @@ pub struct Fetch {
     params: FetchParams,
     child: Child,
     stdout: BufReader<ChildStdout>,
+    stderr_task: JoinHandle<()>,
     line_count: usize,
     buffer: String,
     parsers: Vec<Box<dyn Parser + Sync + Send>>,
@@ -42,13 +44,30 @@ impl Fetch {
             .args(params.to_args()?)
             // .stdin(Stdio::null())
             .stdout(Stdio::piped())
-            // .stderr(Stdio::inherit()) // TODO: do something with this ?
+            .stderr(Stdio::piped()) // TODO: do something with this ?
             .spawn()
             .with_context(|| "failed to spawn doveadm fetch command".to_owned())?;
         // TODO: set userid back to nobody
         switch_to_user(false)?;
         let stdout = match child.stdout.take() {
             Some(stdout) => BufReader::with_capacity(STDOUT_BUF_SIZE, stdout),
+            None => {
+                return Err(anyhow!(
+                    "unable to retrieve stdout handle for fetch command"
+                ))
+            }
+        };
+
+        let stderr_task = match child.stderr.take() {
+            Some(stdout) => {
+                let mut reader = BufReader::with_capacity(STDOUT_BUF_SIZE, stdout);
+                tokio::spawn(async move {
+                    let mut line = String::new();
+                    while let Ok(_) = reader.read_line(&mut line).await {
+                        error!("fetch stderr: {}", line);
+                    }
+                })
+            }
             None => {
                 return Err(anyhow!(
                     "unable to retrieve stdout handle for fetch command"
@@ -90,6 +109,7 @@ impl Fetch {
             params,
             child,
             stdout,
+            stderr_task,
             line_count: 0,
             buffer: String::new(),
             parsers,
