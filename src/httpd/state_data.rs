@@ -1,11 +1,14 @@
 use crate::Config;
+use anyhow::Result;
 use mysql_async::Pool;
 use std::sync::{Arc, LockResult, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use tokio::task::JoinHandle;
 
 #[derive(Debug)]
 pub struct SharedData {
     pub config: Config,
     pub db_conn: Option<Pool>,
+    pub task_list: Vec<JoinHandle<Result<()>>>,
 }
 
 #[derive(Clone)]

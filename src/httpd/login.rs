@@ -131,6 +131,14 @@ pub async fn login_handler(
             )
             .await?;
 
+            if let Some(task) = bg_task {
+                state
+                    .get_mut_state()
+                    .map_err(|e| ApiError::Internal(Some(e.to_string())))?
+                    .task_list
+                    .push(task);
+            }
+
             //if let Some(bg_task) = bg_task {
             //    bg_task.
             //}
