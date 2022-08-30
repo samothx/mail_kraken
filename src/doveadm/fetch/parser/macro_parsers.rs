@@ -1,4 +1,4 @@
-use crate::doveadm::fetch::parser::{FetchFieldRes, Parser, StdoutReader, LINE_FEED};
+use crate::doveadm::fetch::parser::{FetchFieldRes, Parser, StdoutReader};
 use crate::doveadm::ImapField;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
@@ -83,7 +83,7 @@ macro_rules! string_parser {
                 // this is a one-liner, so next_re is not needed
 
                 if let Some(line) = reader.next_line().await? {
-                    let line = line.trim_end_matches(LINE_FEED);
+                    // let line = line.trim_end_matches(LINE_FEED);
                     if let Some(captures) = self.first_line_re.captures(line) {
                         if let Some(capture) = captures.get(1) {
                             let str_val = capture.as_str();

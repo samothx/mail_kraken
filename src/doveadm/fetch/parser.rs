@@ -17,9 +17,8 @@ mod hdr_parser;
 use crate::doveadm::fetch::stdout_reader::StdoutReader;
 pub use hdr_parser::HdrParser;
 
-const LINE_FEED: char = 0xAu8 as char;
+// const LINE_FEED: char = 0xAu8 as char;
 const FORM_FEED: char = 0xCu8 as char;
-const EIR: &str = "\u{C}\u{A}";
 
 #[derive(Debug)]
 pub struct FetchRecord(Vec<FetchFieldRes>);
@@ -33,7 +32,7 @@ impl FetchRecord {
 
         if let Some(line) = reader.next_line().await? {
             debug!("got line: {:?}", line);
-            if !line.ends_with(EIR) {
+            if !line.ends_with(FORM_FEED) {
                 reader.unconsume();
             }
 

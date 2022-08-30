@@ -1,5 +1,5 @@
 use crate::doveadm::fetch::params::ImapField;
-use crate::doveadm::fetch::parser::{FetchFieldRes, Parser, LINE_FEED};
+use crate::doveadm::fetch::parser::{FetchFieldRes, Parser};
 use crate::doveadm::fetch::stdout_reader::StdoutReader;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
@@ -42,12 +42,12 @@ impl Parser for HdrParser {
     ) -> Result<Option<FetchFieldRes>> {
         trace!("parse_first_field: called");
         if let Some(line) = reader.next_line().await? {
-            let line = line.trim_end_matches(LINE_FEED);
+            // let line = line.trim_end_matches(LINE_FEED);
             trace!("parse_first_field: got line: [{}]", line);
             if self.first_line_re.is_match(line) {
                 let mut res: Vec<(String, String)> = Vec::new();
                 while let Some(line) = reader.next_line().await? {
-                    let line = line.trim_end_matches(LINE_FEED);
+                    // let line = line.trim_end_matches(LINE_FEED);
                     trace!("parse_first_field: got next line: [{}]", line);
                     if let Some(captures) = self.subseq_line_re.captures(line) {
                         if let Some(no_tag) = captures.get(4) {
