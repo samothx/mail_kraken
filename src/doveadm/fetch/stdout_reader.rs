@@ -110,7 +110,7 @@ impl StdoutLineReader {
 
     pub(crate) async fn next_line(&mut self) -> Result<Option<&str>> {
         trace!("next_line: called");
-        if self.consumed {
+        if !self.consumed {
             Ok(Some(self.str_buf.as_str()))
         } else {
             self.str_buf.clear();
