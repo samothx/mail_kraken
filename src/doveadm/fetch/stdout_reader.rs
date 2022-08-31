@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use log::trace;
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
+use tokio::io::AsyncReadExt;
 use tokio::process::ChildStdout;
 
 const BUFF_SIZE: usize = 1024 * 1024;
@@ -28,7 +28,7 @@ impl StdoutLineReader {
             consumed: true,
             finished: false,
             line_buf: Vec::with_capacity(STR_BUFF_SIZE),
-            str_buf: String::with_capacity(STR_BUFF_SIZE),
+            str_buf: String::new(),
         }
     }
 
@@ -112,15 +112,11 @@ impl StdoutLineReader {
         trace!("next_line: called");
         if !self.consumed {
             Ok(Some(self.str_buf.as_str()))
+        } else if self.next_line_raw().await?.is_some() {
+            self.str_buf = (&*String::from_utf8_lossy(&self.line_buf[..])).to_owned();
+            Ok(Some(self.str_buf.as_str()))
         } else {
-            self.str_buf.clear();
-            self.next_line_raw().await?;
-            if self.next_line_raw().await?.is_some() {
-                self.str_buf = (&*String::from_utf8_lossy(&self.line_buf[..])).to_owned();
-                Ok(Some(self.str_buf.as_str()))
-            } else {
-                Ok(None)
-            }
+            Ok(None)
         }
     }
 

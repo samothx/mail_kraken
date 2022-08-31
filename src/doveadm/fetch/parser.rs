@@ -17,7 +17,6 @@ mod hdr_parser;
 use crate::doveadm::fetch::stdout_reader::StdoutLineReader;
 pub use hdr_parser::HdrParser;
 
-const LINE_FEED: char = 0xAu8 as char;
 const FORM_FEED: char = 0xCu8 as char;
 
 #[derive(Debug)]
