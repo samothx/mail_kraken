@@ -1,7 +1,7 @@
 use crate::doveadm::fetch::params::ImapField;
 use crate::doveadm::fetch::parser::FieldType::MultiLine;
 use crate::doveadm::fetch::parser::{FetchFieldRes, FieldType, Parser, FORM_FEED};
-use crate::doveadm::fetch::stdout_reader::{StdoutLineReader, StdoutLineReader1};
+use crate::doveadm::fetch::stdout_reader::StdoutLineReader;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use log::debug;

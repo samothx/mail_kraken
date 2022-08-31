@@ -1,6 +1,6 @@
 use crate::doveadm::fetch::params::ImapField;
 use crate::doveadm::fetch::parser::{FetchFieldRes, Parser};
-use crate::doveadm::fetch::stdout_reader::{StdoutLineReader, StdoutLineReader1};
+use crate::doveadm::fetch::stdout_reader::StdoutLineReader;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use log::{debug, trace};
@@ -41,13 +41,20 @@ impl Parser for HdrParser {
         _next_re: Option<&Regex>,
     ) -> Result<Option<FetchFieldRes>> {
         trace!("parse_first_field: called");
-        if let Some(line) = reader.next_line().await? {
+        if let Some(line_buf) = reader.next_line_raw().await? {
+            let line = rfc2047_decoder::decode(line_buf)?;
             trace!("parse_first_field: got line: [{:?}]", line);
-            if self.first_line_re.is_match(line) {
+            if self.first_line_re.is_match(line.as_str()) {
                 let mut res: Vec<(String, String)> = Vec::new();
-                while let Some(line) = reader.next_line().await? {
+                while let Some(line_buf) = reader.next_line_raw().await? {
                     trace!("parse_first_field: got next line: [{:?}]", line);
-                    if let Some(captures) = self.subseq_line_re.captures(line) {
+                    let line = rfc2047_decoder::decode(line_buf).with_context(|| {
+                        format!(
+                            "failed to decode line: [{}]",
+                            &*String::from_utf8_lossy(&line_buf[..])
+                        )
+                    })?;
+                    if let Some(captures) = self.subseq_line_re.captures(line.as_str()) {
                         trace!("parse_first_field: adding tagged string");
                         res.push(
                                 (captures
@@ -67,7 +74,7 @@ impl Parser for HdrParser {
                         trace!("parse_first_field: adding untagged string: [{:?}]", line);
                         let (_, value) = res.last_mut().expect("unexpected: last value not found");
                         value.push('\n');
-                        value.push_str(line);
+                        value.push_str(line.as_ref());
                     }
                     trace!("parse_first_field: done with line");
                 }
