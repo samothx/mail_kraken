@@ -1,6 +1,6 @@
 use crate::doveadm::fetch::params::ImapField;
 use crate::doveadm::fetch::parser::{FetchFieldRes, Parser};
-use crate::doveadm::fetch::stdout_reader::StdoutLineReader;
+use crate::doveadm::fetch::stdout_reader::{StdoutLineReader, StdoutLineReader1};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use log::{debug, trace};

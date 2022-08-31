@@ -5,7 +5,7 @@ use tokio::process::ChildStdout;
 
 const BUFF_SIZE: usize = 1024 * 1024;
 
-pub struct StdoutLineReader2 {
+pub struct StdoutLineReader {
     buffer: Box<[u8; BUFF_SIZE]>,
     line_buf: String,
     consumed: bool,
@@ -15,9 +15,9 @@ pub struct StdoutLineReader2 {
     read_pos: usize,
     end_pos: usize,
 }
-impl StdoutLineReader2 {
-    pub fn new(stream: ChildStdout) -> StdoutLineReader2 {
-        StdoutLineReader2 {
+impl StdoutLineReader {
+    pub fn new(stream: ChildStdout) -> StdoutLineReader {
+        StdoutLineReader {
             stream,
             read_pos: BUFF_SIZE,
             end_pos: BUFF_SIZE,
@@ -127,7 +127,7 @@ impl StdoutLineReader2 {
     }
 }
 
-pub struct StdoutLineReader {
+pub struct StdoutLineReader1 {
     // buffer: Box<[u8; BUFF_SIZE]>,
     line_buf: String,
     consumed: bool,
@@ -135,9 +135,9 @@ pub struct StdoutLineReader {
     reader: BufReader<ChildStdout>,
     line_count: usize,
 }
-impl StdoutLineReader {
-    pub fn new(stream: ChildStdout) -> StdoutLineReader {
-        StdoutLineReader {
+impl StdoutLineReader1 {
+    pub fn new(stream: ChildStdout) -> StdoutLineReader1 {
+        StdoutLineReader1 {
             reader: BufReader::with_capacity(BUFF_SIZE, stream),
             line_count: 0,
             consumed: true,
