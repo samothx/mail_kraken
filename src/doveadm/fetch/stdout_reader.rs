@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use log::trace;
+use regex::bytes::Regex;
 use tokio::io::AsyncReadExt;
 use tokio::process::ChildStdout;
 
@@ -77,6 +78,7 @@ impl StdoutLineReader {
                         }
                         self.read_pos += count + 1;
                         self.line_count += 1;
+                        // TODO: decode RFC2047
                         return Ok(Some(&self.line_buf[..]));
                     } else {
                         // not found before the end of the buffer
