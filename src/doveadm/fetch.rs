@@ -1,11 +1,10 @@
 use anyhow::{anyhow, Context, Result};
-use log::{debug, error, trace};
+use log::debug;
 use std::process::{ExitStatus, Stdio};
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
-use tokio::process::{Child, ChildStdout, Command};
-use tokio::task::JoinHandle;
 
-use super::{DOVEADM_CMD, MB_SIZE};
+use tokio::process::{Child, Command};
+
+use super::DOVEADM_CMD;
 use crate::switch_to_user;
 use params::{FetchParams, ImapField};
 use parser::{GenericParser, HdrParser, Parser};
@@ -19,18 +18,16 @@ use crate::doveadm::fetch::parser::{
     SizePhysicalParser, UidParser,
 };
 
-const STDOUT_BUF_SIZE: usize = 1024 * 1024 * 100; // 10MB
-
 use crate::doveadm::fetch::stdout_reader::StdoutLineReader;
 pub use parser::{FetchFieldRes, FetchRecord};
 
 pub struct Fetch {
-    params: FetchParams,
+    // params: FetchParams,
     child: Child,
     stdout: StdoutLineReader,
     // stderr_task: JoinHandle<()>,
-    line_count: usize,
-    buffer: String,
+    // line_count: usize,
+    // buffer: String,
     parsers: Vec<Box<dyn Parser + Sync + Send>>,
 }
 
@@ -114,11 +111,9 @@ impl Fetch {
         }
 
         Ok(Fetch {
-            params,
+            // params,
             child,
             stdout: StdoutLineReader::new(stdout),
-            line_count: 0,
-            buffer: String::new(),
             parsers,
         })
     }
@@ -137,7 +132,6 @@ impl Fetch {
     }
 
     async fn flush_stdout(&mut self) -> Result<()> {
-        let mut buf = vec![0u8; MB_SIZE];
         self.stdout.flush().await?;
         Ok(())
     }

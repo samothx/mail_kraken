@@ -153,27 +153,36 @@ pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
     let mut wa = Workaround { db_conn };
 
     let mut read_buf = ReadBuf::new();
-    let mut count = 0usize;
+    let mut msg_count = 0usize;
+    let mut insert_count = 0usize;
+    let ts_start = chrono::Local::now();
     while let Some(record) = fetch_cmd.parse_record().await? {
         trace!("got record: {:?}", record);
-        count += 1;
+        msg_count += 1;
 
         match process_record(&mut wa, user_id, record, &mut read_buf, &date_time_tz_regex).await {
-            Ok(_) => (),
+            Ok(_) => {
+                insert_count += 1;
+            }
             Err(e) => {
                 error!("scan: process_record failed: {:?}", e);
                 continue;
             }
         };
-        if count % 20 == 0 {
-            debug!("scan: processed {} messages", count);
+        if msg_count % 20 == 0 {
+            debug!("scan: processed {} messages", msg_count);
         }
     }
 
+    let duration = chrono::Local::now() - ts_start;
     let status = fetch_cmd
         .get_exit_status()
         .await
         .with_context(|| "failed to retrieve exit status from fetch process".to_owned())?;
+    info!(
+        "scan: processed {} messages, inserted {} in {}",
+        msg_count, insert_count, duration
+    );
     info!(
         "scan: done parsing records: fetch exit status: {}",
         status.code().unwrap_or(-1)

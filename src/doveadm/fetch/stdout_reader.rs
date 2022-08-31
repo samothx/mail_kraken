@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use log::{debug, trace};
+use log::trace;
 use tokio::io::AsyncReadExt;
 use tokio::process::ChildStdout;
 
@@ -39,69 +39,67 @@ impl StdoutLineReader {
             trace!("next_line: returning unconsumed buffer");
             self.consumed = true;
             Ok(Some(self.line_buf.as_str()))
+        } else if self.finished {
+            trace!("next_line: stream is finished");
+            Ok(None)
         } else {
-            if self.finished {
-                trace!("next_line: stream is finished");
-                Ok(None)
-            } else {
-                self.line_buf.clear();
-                loop {
-                    if self.read_pos < self.end_pos {
-                        trace!("next_line: parsing buffer");
-                        let mut count = 0;
-                        let found = self.buffer[self.read_pos..self.end_pos]
-                            .iter()
-                            .enumerate()
-                            .any(|(idx, ch)| {
-                                if *ch == 0xA {
-                                    count = idx;
-                                    true
-                                } else {
-                                    false
-                                }
-                            });
-
-                        if found {
-                            // found before the end of the buffer
-                            trace!(
-                                "next_line: found @offset {}, {} bytes ",
-                                self.read_pos,
-                                count
-                            );
-                            if count > 0 {
-                                self.line_buf.push_str(&*String::from_utf8_lossy(
-                                    &self.buffer[self.read_pos..self.read_pos + count],
-                                ));
+            self.line_buf.clear();
+            loop {
+                if self.read_pos < self.end_pos {
+                    trace!("next_line: parsing buffer");
+                    let mut count = 0;
+                    let found = self.buffer[self.read_pos..self.end_pos]
+                        .iter()
+                        .enumerate()
+                        .any(|(idx, ch)| {
+                            if *ch == 0xA {
+                                count = idx;
+                                true
+                            } else {
+                                false
                             }
-                            self.read_pos += count + 1;
-                            self.line_count += 1;
-                            return Ok(Some(self.line_buf.as_str()));
-                        } else {
-                            // not found before the end of the buffer
-                            trace!("next_line: not found, flushing buffer to line buffer");
+                        });
+
+                    if found {
+                        // found before the end of the buffer
+                        trace!(
+                            "next_line: found @offset {}, {} bytes ",
+                            self.read_pos,
+                            count
+                        );
+                        if count > 0 {
                             self.line_buf.push_str(&*String::from_utf8_lossy(
-                                &self.buffer[self.read_pos..self.end_pos],
+                                &self.buffer[self.read_pos..self.read_pos + count],
                             ));
-                            self.read_pos = self.end_pos;
+                        }
+                        self.read_pos += count + 1;
+                        self.line_count += 1;
+                        return Ok(Some(self.line_buf.as_str()));
+                    } else {
+                        // not found before the end of the buffer
+                        trace!("next_line: not found, flushing buffer to line buffer");
+                        self.line_buf.push_str(&*String::from_utf8_lossy(
+                            &self.buffer[self.read_pos..self.end_pos],
+                        ));
+                        self.read_pos = self.end_pos;
+                    }
+                } else {
+                    trace!("next_line: filling buffer");
+                    self.end_pos = self.stream.read(&mut self.buffer[0..BUFF_SIZE]).await?;
+                    if self.end_pos == 0 {
+                        self.finished = true;
+                        trace!("next_line: stream is finished");
+                        if self.line_buf.is_empty() {
+                            trace!("next_line: return None");
+                            return Ok(None);
+                        } else {
+                            self.line_count += 1;
+                            trace!("next_line: return previously parsed bytes");
+                            return Ok(Some(self.line_buf.as_str()));
                         }
                     } else {
-                        trace!("next_line: filling buffer");
-                        self.end_pos = self.stream.read(&mut self.buffer[0..BUFF_SIZE]).await?;
-                        if self.end_pos == 0 {
-                            self.finished = true;
-                            trace!("next_line: stream is finished");
-                            if self.line_buf.is_empty() {
-                                trace!("next_line: return None");
-                                return Ok(None);
-                            } else {
-                                self.line_count += 1;
-                                trace!("next_line: return previously parsed bytes");
-                                return Ok(Some(self.line_buf.as_str()));
-                            }
-                        } else {
-                            trace!("next_line: buffer refilled to {}", self.end_pos);
-                            self.read_pos = 0;
-                        }
+                        trace!("next_line: buffer refilled to {}", self.end_pos);
+                        self.read_pos = 0;
                     }
                 }
             }
