@@ -182,7 +182,7 @@ impl StdoutLineReader {
 
     pub(crate) async fn flush(&mut self) -> Result<()> {
         self.finished = true;
-        let mut buffer = [0u8; 0x4000]; // 16K
+        let mut buffer = Box::new([0u8; BUFF_SIZE]); // 16K
         while self.reader.read(&mut buffer[0..]).await? > 0 {}
         Ok(())
     }
