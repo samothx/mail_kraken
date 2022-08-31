@@ -79,11 +79,8 @@ macro_rules! string_parser {
                 reader: &mut StdoutLineReader,
                 _next_re: Option<&Regex>,
             ) -> Result<Option<FetchFieldRes>> {
-                trace!("parse_first_field: called for {}", $tag);
-                // this is a one-liner, so next_re is not needed
-
                 if let Some(line) = reader.next_line().await? {
-                    // let line = line.trim_end_matches(LINE_FEED);
+                    trace!("parse_first_field: [{}] got [{:?}]", $tag, line);
                     if let Some(captures) = self.first_line_re.captures(line) {
                         if let Some(capture) = captures.get(1) {
                             let str_val = capture.as_str();
