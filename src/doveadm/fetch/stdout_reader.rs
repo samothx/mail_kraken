@@ -111,6 +111,7 @@ impl StdoutLineReader {
     pub(crate) async fn next_line(&mut self) -> Result<Option<&str>> {
         trace!("next_line: called");
         if !self.consumed {
+            self.consumed = true;
             Ok(Some(self.str_buf.as_str()))
         } else if self.next_line_raw().await?.is_some() {
             self.str_buf = (&*String::from_utf8_lossy(&self.line_buf[..])).to_owned();
