@@ -156,31 +156,26 @@ pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
     let mut msg_count = 0usize;
     let mut insert_count = 0usize;
     let ts_start = chrono::Local::now();
-    loop {
-        if let Some(record) = match fetch_cmd.parse_record().await {
-            Ok(res) => res,
+    while let Some(record) = match fetch_cmd.parse_record().await {
+        Ok(res) => res,
+        Err(e) => {
+            error!("scan: parser failed with {:?}", e);
+            return Err(e);
+        }
+    } {
+        trace!("got record: {:?}", record);
+        msg_count += 1;
+        match process_record(&mut wa, user_id, record, &mut read_buf, &date_time_tz_regex).await {
+            Ok(_) => {
+                insert_count += 1;
+            }
             Err(e) => {
-                error!("scan: parser failed with {:?}", e);
-                return Err(e);
+                error!("scan: process_record failed: {:?}", e);
+                continue;
             }
-        } {
-            trace!("got record: {:?}", record);
-            msg_count += 1;
-            match process_record(&mut wa, user_id, record, &mut read_buf, &date_time_tz_regex).await
-            {
-                Ok(_) => {
-                    insert_count += 1;
-                }
-                Err(e) => {
-                    error!("scan: process_record failed: {:?}", e);
-                    continue;
-                }
-            };
-            if msg_count % 20 == 0 {
-                debug!("scan: processed {} messages", msg_count);
-            }
-        } else {
-            break;
+        };
+        if msg_count % 20 == 0 {
+            debug!("scan: processed {} messages", msg_count);
         }
     }
 

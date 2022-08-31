@@ -54,3 +54,7 @@ CREATE TABLE `imap_flag` (
               ON DELETE CASCADE
               ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE VIEW whitelist
+    AS SELECT DISTINCT rec.user_id, rec.mail_from FROM record as rec, imap_flag as flag
+        WHERE rec.id=flag.record_id and flag.name='\\Answered'
