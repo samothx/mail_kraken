@@ -10,7 +10,7 @@ use actix_identity::{CookieIdentityPolicy, IdentityService};
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 
 use actix_web::middleware::Logger;
-use log::{debug, error};
+use log::{debug, error, info};
 use std::net::SocketAddr;
 
 const ADMIN_NAME: &str = "admin";
@@ -68,6 +68,11 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
     });
 
     let private_key = rand::thread_rng().gen::<[u8; 32]>();
+
+    info!(
+        "serve: starting HttpServer in directory: {:?}",
+        std::env::current_dir()?
+    );
 
     HttpServer::new(move || {
         let data = shared_data.clone();

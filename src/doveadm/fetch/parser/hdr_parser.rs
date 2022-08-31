@@ -52,13 +52,13 @@ impl Parser for HdrParser {
             if self.first_line_re.is_match(line.as_str()) {
                 let mut res: Vec<(String, String)> = Vec::new();
                 while let Some(line_buf) = reader.next_line_raw().await? {
-                    trace!("parse_first_field: got next line: [{:?}]", line);
                     let line = rfc2047_decoder::decode(line_buf).with_context(|| {
                         format!(
                             "rfc2047_decoder::decode failed on [{}]",
                             String::from_utf8_lossy(line_buf)
                         )
                     })?;
+                    trace!("parse_first_field: got next line: [{:?}]", line);
                     if let Some(captures) = self.subseq_line_re.captures(line.as_str()) {
                         trace!("parse_first_field: adding tagged string");
                         res.push(
@@ -74,6 +74,7 @@ impl Parser for HdrParser {
                                         .to_owned(),
                                 ));
                     } else if line.is_empty() {
+                        trace!("parse_first_field: stopping on empty line");
                         return Ok(Some(FetchFieldRes::Hdr(res)));
                     } else {
                         trace!("parse_first_field: adding untagged string: [{:?}]", line);

@@ -137,6 +137,7 @@ pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
     debug!("scan: fetching,  id: {} ", user_id);
 
     let date_time_tz_regex = Regex::new(r"^(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s\(([^)]+)\)$")?;
+
     let fetch_params = FetchParams::new(user)
         .add_field(ImapField::Flags)
         .add_field(ImapField::Guid)
@@ -175,7 +176,13 @@ pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
             }
         };
         if msg_count % 20 == 0 {
-            debug!("scan: processed {} messages", msg_count);
+            let duration = chrono::Local::now() - ts_start;
+            debug!(
+                "scan: processed {} messages, inserted {} in {} seconds",
+                msg_count,
+                insert_count,
+                duration.num_seconds()
+            );
         }
     }
 
@@ -185,8 +192,10 @@ pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
         .await
         .with_context(|| "failed to retrieve exit status from fetch process".to_owned())?;
     info!(
-        "scan: processed {} messages, inserted {} in {}",
-        msg_count, insert_count, duration
+        "scan: processed {} messages, inserted {} in {} seconds",
+        msg_count,
+        insert_count,
+        duration.num_seconds()
     );
     info!(
         "scan: done parsing records: fetch exit status: {}",
@@ -242,10 +251,11 @@ async fn process_record(
             FetchFieldRes::Hdr(val) => {
                 read_buf.hdr = val;
                 received |= RECV_HDRS
-            }
-            FetchFieldRes::Generic((_imap_field, _value)) => {
-                todo!()
-            }
+            } /*
+              FetchFieldRes::Generic((_imap_field, _value)) => {
+                  todo!()
+              }
+               */
         }
     }
 

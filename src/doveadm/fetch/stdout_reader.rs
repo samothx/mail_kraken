@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Result};
 use log::trace;
-use regex::bytes::Regex;
 use tokio::io::AsyncReadExt;
 use tokio::process::ChildStdout;
 

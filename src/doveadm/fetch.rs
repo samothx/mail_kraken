@@ -7,7 +7,7 @@ use tokio::process::{Child, Command};
 use super::DOVEADM_CMD;
 use crate::switch_to_user;
 use params::{FetchParams, ImapField};
-use parser::{GenericParser, HdrParser, Parser};
+use parser::{HdrParser, Parser};
 
 mod stdout_reader;
 
@@ -84,7 +84,12 @@ impl Fetch {
                     Box::new(SingleLineParser::new(field, true)?) as Box<dyn Parser + Sync>
                 }*/
                 ImapField::Hdr => Box::new(HdrParser::new()?) as Box<dyn Parser + Sync + Send>,
-                _ => Box::new(GenericParser::new(field)?) as Box<dyn Parser + Sync + Send>,
+                _ => {
+                    return Err(anyhow!(
+                        "no parser found for field: [{}]",
+                        field.to_string()
+                    ));
+                }
             });
         }
 

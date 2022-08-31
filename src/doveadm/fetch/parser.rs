@@ -1,12 +1,10 @@
-use crate::doveadm::fetch::params::ImapField;
-
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use log::debug;
 use regex::Regex;
 
-mod generic_parser;
-pub use generic_parser::GenericParser;
+// mod generic_parser;
+// pub use generic_parser::GenericParser;
 mod macro_parsers;
 pub use macro_parsers::{
     DateReceivedParser, DateSavedParser, DateSentParser, FlagsParser, GuidParser, MailboxParser,
@@ -78,11 +76,13 @@ impl IntoIterator for FetchRecord {
     }
 }
 
+/*
 #[derive(Debug)]
 pub enum FieldType {
     MultiLine(Vec<String>),
     SingleLine(String),
 }
+*/
 
 #[derive(Debug)]
 pub enum FetchFieldRes {
@@ -95,7 +95,7 @@ pub enum FetchFieldRes {
     DateReceived(String),
     DateSent(String),
     SizePhysical(usize),
-    Generic((ImapField, FieldType)),
+    // Generic((ImapField, FieldType)),
 }
 
 #[async_trait]
