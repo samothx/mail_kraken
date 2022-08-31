@@ -17,7 +17,7 @@ pub struct HdrParser {
 impl HdrParser {
     pub fn new() -> Result<HdrParser> {
         let re_str = format!(r"^{}:$", ImapField::Hdr.to_string());
-        let subseq_re_str = r"^(([^:]+):\s(.*)|\s*(\S.*))$";
+        let subseq_re_str = r"^([^:]+):\s(.*)$";
         debug!("first_line_re:  {:?}", re_str);
         debug!("subseq_line_re: {:?}", subseq_re_str);
         Ok(HdrParser {
@@ -48,16 +48,8 @@ impl Parser for HdrParser {
                 while let Some(line) = reader.next_line().await? {
                     trace!("parse_first_field: got next line: [{:?}]", line);
                     if let Some(captures) = self.subseq_line_re.captures(line) {
-                        if let Some(no_tag) = captures.get(4) {
-                            trace!("parse_first_field: adding untagged string");
-                            let add_val = no_tag.as_str();
-                            let (_, value) =
-                                res.last_mut().expect("unexpected: last value not found");
-                            value.push('\n');
-                            value.push_str(add_val);
-                        } else {
-                            trace!("parse_first_field: adding tagged string");
-                            res.push(
+                        trace!("parse_first_field: adding tagged string");
+                        res.push(
                                 (captures
                                      .get(2)
                                      .unwrap_or_else(|| panic!("HdrParser::parse_first_field: unexpected empty Hdr value in line '{}'", line))
@@ -69,11 +61,13 @@ impl Parser for HdrParser {
                                         .as_str()
                                         .to_owned(),
                                 ));
-                        }
                     } else if line.is_empty() {
                         return Ok(Some(FetchFieldRes::Hdr(res)));
                     } else {
-                        return Err(anyhow!("hdr regex failed to match in line '{}'", line));
+                        trace!("parse_first_field: adding untagged string: [{:?}]", line);
+                        let (_, value) = res.last_mut().expect("unexpected: last value not found");
+                        value.push('\n');
+                        value.push_str(line);
                     }
                     trace!("parse_first_field: done with line");
                 }

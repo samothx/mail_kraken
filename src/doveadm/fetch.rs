@@ -58,28 +58,6 @@ impl Fetch {
             }
         };
 
-        /*        let stderr_task = match child.stderr.take() {
-                    Some(stdout) => {
-                        let mut reader = BufReader::with_capacity(STDOUT_BUF_SIZE, stdout);
-                        tokio::spawn(async move {
-                            let mut line = String::new();
-                            while let Ok(bytes) = reader.read_line(&mut line).await {
-                                if bytes > 0 {
-                                    error!("fetch stderr: {}", line);
-                                    line.clear();
-                                } else {
-                                    break;
-                                }
-                            }
-                        })
-                    }
-                    None => {
-                        return Err(anyhow!(
-                            "unable to retrieve stdout handle for fetch command"
-                        ))
-                    }
-                };
-        */
         let mut parsers: Vec<Box<dyn Parser + Sync + Send>> = Vec::new();
         for field in params.fields() {
             parsers.push(match field {

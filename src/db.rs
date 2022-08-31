@@ -134,7 +134,7 @@ const RECV_ALL: u32 = RECV_UID
     | RECV_FROM_HDR;
 
 pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
-    debug!("init_user: fetching,  id: {} ", user_id);
+    debug!("scan: fetching,  id: {} ", user_id);
 
     let date_time_tz_regex = Regex::new(r"^(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s\(([^)]+)\)$")?;
     let fetch_params = FetchParams::new(user)
@@ -156,21 +156,31 @@ pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
     let mut msg_count = 0usize;
     let mut insert_count = 0usize;
     let ts_start = chrono::Local::now();
-    while let Some(record) = fetch_cmd.parse_record().await? {
-        trace!("got record: {:?}", record);
-        msg_count += 1;
-
-        match process_record(&mut wa, user_id, record, &mut read_buf, &date_time_tz_regex).await {
-            Ok(_) => {
-                insert_count += 1;
-            }
+    loop {
+        if let Some(record) = match fetch_cmd.parse_record().await {
+            Ok(res) => res,
             Err(e) => {
-                error!("scan: process_record failed: {:?}", e);
-                continue;
+                error!("scan: parser failed with {:?}", e);
+                return Err(e);
             }
-        };
-        if msg_count % 20 == 0 {
-            debug!("scan: processed {} messages", msg_count);
+        } {
+            trace!("got record: {:?}", record);
+            msg_count += 1;
+            match process_record(&mut wa, user_id, record, &mut read_buf, &date_time_tz_regex).await
+            {
+                Ok(_) => {
+                    insert_count += 1;
+                }
+                Err(e) => {
+                    error!("scan: process_record failed: {:?}", e);
+                    continue;
+                }
+            };
+            if msg_count % 20 == 0 {
+                debug!("scan: processed {} messages", msg_count);
+            }
+        } else {
+            break;
         }
     }
 
