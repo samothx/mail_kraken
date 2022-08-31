@@ -1,11 +1,11 @@
 use anyhow::{anyhow, Result};
 use log::trace;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::process::ChildStdout;
 
 const BUFF_SIZE: usize = 1024 * 1024;
 
-pub struct StdoutLineReader {
+pub struct StdoutLineReader2 {
     buffer: Box<[u8; BUFF_SIZE]>,
     line_buf: String,
     consumed: bool,
@@ -15,9 +15,9 @@ pub struct StdoutLineReader {
     read_pos: usize,
     end_pos: usize,
 }
-impl StdoutLineReader {
-    pub fn new(stream: ChildStdout) -> StdoutLineReader {
-        StdoutLineReader {
+impl StdoutLineReader2 {
+    pub fn new(stream: ChildStdout) -> StdoutLineReader2 {
+        StdoutLineReader2 {
             stream,
             read_pos: BUFF_SIZE,
             end_pos: BUFF_SIZE,
@@ -109,6 +109,81 @@ impl StdoutLineReader {
     pub(crate) async fn flush(&mut self) -> Result<()> {
         self.finished = true;
         while self.stream.read(&mut self.buffer[0..]).await? > 0 {}
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    async fn expect_get_line(&mut self) -> Result<&str> {
+        if let Some(res) = self.next_line().await? {
+            Ok(res)
+        } else {
+            Err(anyhow!("encountered unexpected EOI"))
+        }
+    }
+
+    #[allow(dead_code)]
+    fn line_count(&self) -> usize {
+        self.line_count
+    }
+}
+
+pub struct StdoutLineReader {
+    // buffer: Box<[u8; BUFF_SIZE]>,
+    line_buf: String,
+    consumed: bool,
+    finished: bool,
+    reader: BufReader<ChildStdout>,
+    line_count: usize,
+}
+impl StdoutLineReader {
+    pub fn new(stream: ChildStdout) -> StdoutLineReader {
+        StdoutLineReader {
+            reader: BufReader::with_capacity(BUFF_SIZE, stream),
+            line_count: 0,
+            consumed: true,
+            finished: false,
+            line_buf: String::with_capacity(1024),
+        }
+    }
+
+    pub(crate) fn unconsume(&mut self) {
+        self.consumed = false;
+    }
+
+    pub(crate) async fn next_line(&mut self) -> Result<Option<&str>> {
+        trace!("next_line: called");
+        if !self.consumed {
+            trace!("next_line: returning unconsumed buffer");
+            self.consumed = true;
+            Ok(Some(self.line_buf.as_str()))
+        } else if self.finished {
+            trace!("next_line: stream is finished");
+            Ok(None)
+        } else {
+            self.line_buf.clear();
+            trace!("next_line: reading line from stream");
+            if self.reader.read_line(&mut self.line_buf).await? == 0 {
+                trace!("next_line: stream is finished");
+                self.finished = true;
+                if self.line_buf.is_empty() {
+                    trace!("next_line: returing None");
+                    Ok(None)
+                } else {
+                    trace!("next_line: returing Some");
+                    Ok(Some(self.line_buf.as_str()))
+                }
+            } else {
+                self.line_buf.remove(self.line_buf.len() - 1);
+                trace!("next_line: returing Some");
+                Ok(Some(self.line_buf.as_str()))
+            }
+        }
+    }
+
+    pub(crate) async fn flush(&mut self) -> Result<()> {
+        self.finished = true;
+        let mut buffer = [0u8; BUFF_SIZE];
+        while self.reader.read(&mut buffer[0..]).await? > 0 {}
         Ok(())
     }
 
