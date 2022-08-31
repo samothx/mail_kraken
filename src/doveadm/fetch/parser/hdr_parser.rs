@@ -51,12 +51,12 @@ impl Parser for HdrParser {
                         trace!("parse_first_field: adding tagged string");
                         res.push(
                                 (captures
-                                     .get(2)
+                                     .get(1)
                                      .unwrap_or_else(|| panic!("HdrParser::parse_first_field: unexpected empty Hdr value in line '{}'", line))
                                      .as_str()
                                      .to_owned(),
                                     captures
-                                        .get(3)
+                                        .get(2)
                                         .unwrap_or_else(|| panic!("HdrParser::parse_first_field: unexpected empty Hdr value in line '{}'", line))
                                         .as_str()
                                         .to_owned(),
