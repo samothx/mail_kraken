@@ -352,7 +352,7 @@ async fn process_record(
             "dt_recv"=>read_buf.date_received.as_str(),
             "dt_saved"=>read_buf.date_saved.as_str(),
             "size"=>read_buf.size_physical,
-            "subj"=>read_buf.subj.as_str()})
+            "mail_subj"=>read_buf.subj.as_str()})
                 .ignore(&mut wa.db_conn)
                 .await
                 .with_context(|| "failed to insert record".to_owned())?;
