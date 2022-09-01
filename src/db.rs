@@ -340,7 +340,7 @@ async fn process_record(
             offset
         );
         if DO_INSERT {
-            r#"insert into record (user_id,uid,guid,mailbox,dt_sent,tz_sent,dt_recv,dt_saved,size,mail_to,mail_from,mail_subj)
+            r#"insert into record (user_id,uid,guid,mailbox,dt_sent,tz_sent,dt_recv,dt_saved,size,mail_subj)
  values(:user_id,:uid,:guid,:mailbox,:dt_sent,:tz_sent,:dt_recv,:dt_saved,:size,:to,:from,:subj)"#
                 .with(params! {
             "user_id"=>user_id,
