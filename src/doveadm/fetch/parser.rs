@@ -16,6 +16,7 @@ use crate::doveadm::fetch::stdout_reader::StdoutLineReader;
 pub use hdr_parser::HdrParser;
 
 const FORM_FEED: char = 0xCu8 as char;
+const FORM_FEED_STR: &str = "\u{c}";
 
 #[derive(Debug)]
 pub struct FetchRecord(Vec<FetchFieldRes>);
@@ -34,12 +35,21 @@ impl FetchRecord {
             }
 
             let mut res: Vec<FetchFieldRes> = Vec::new();
+            let first_parser = if let Some(first_parser) = parsers.first() {
+                first_parser
+            } else {
+                return Err(anyhow!("parse: empty list of parsers encoutered"));
+            };
+
             let mut parsers = parsers.iter();
             let parser = parsers.next().expect("unexpected empty parser list");
             let mut next_parser = parsers.next();
 
             if let Some(curr_res) = parser
-                .parse_first_field(reader, next_parser.map(|parser| parser.get_first_line_re()))
+                .parse_first_field(
+                    reader,
+                    next_parser.unwrap_or(first_parser).get_first_line_re(),
+                )
                 .await?
             {
                 res.push(curr_res);
@@ -54,7 +64,7 @@ impl FetchRecord {
                     parser
                         .parse_subseq_field(
                             reader,
-                            next_parser.map(|parser| parser.get_first_line_re()),
+                            next_parser.unwrap_or(first_parser).get_first_line_re(),
                         )
                         .await?,
                 );
@@ -108,14 +118,14 @@ pub trait Parser {
     async fn parse_first_field(
         &self,
         reader: &mut StdoutLineReader,
-        next_re: Option<&Regex>,
+        next_re: &Regex,
     ) -> Result<Option<FetchFieldRes>>;
     // parse a field (all lines of it) - for any field other than the first of a record an EOI
     // constitutes an error
     async fn parse_subseq_field(
         &self,
         reader: &mut StdoutLineReader,
-        next_re: Option<&Regex>,
+        next_re: &Regex,
     ) -> Result<FetchFieldRes> {
         if let Some(res) = self.parse_first_field(reader, next_re).await? {
             Ok(res)

@@ -9,7 +9,8 @@ const STR_BUFF_SIZE: usize = 1024 * 64; // 64K
 pub struct StdoutLineReader {
     buffer: Box<[u8; BUFF_SIZE]>,
     line_buf: Vec<u8>,
-    str_buf: String,
+    str_buf: Option<String>,
+    rfc2047_buf: Option<String>,
     consumed: bool,
     finished: bool,
     stream: ChildStdout,
@@ -28,7 +29,8 @@ impl StdoutLineReader {
             consumed: true,
             finished: false,
             line_buf: Vec::with_capacity(STR_BUFF_SIZE),
-            str_buf: String::new(),
+            str_buf: None,
+            rfc2047_buf: None,
         }
     }
 
@@ -36,7 +38,7 @@ impl StdoutLineReader {
         self.consumed = false;
     }
 
-    pub(crate) async fn next_line_raw(&mut self) -> Result<Option<&[u8]>> {
+    async fn next_line_raw(&mut self) -> Result<Option<&[u8]>> {
         trace!("next_line_raw: called");
         if !self.consumed {
             trace!("next_line_raw: returning unconsumed buffer");
@@ -109,14 +111,39 @@ impl StdoutLineReader {
         }
     }
 
-    pub(crate) async fn next_line(&mut self) -> Result<Option<&str>> {
+    pub(crate) async fn next_line_rfc2047(&mut self) -> Result<Option<&str>> {
         trace!("next_line: called");
+        self.str_buf = None;
         if !self.consumed {
             self.consumed = true;
-            Ok(Some(self.str_buf.as_str()))
+            if self.rfc2047_buf.is_some() {
+                Ok(Some(self.rfc2047_buf.as_deref().unwrap()))
+            } else {
+                self.rfc2047_buf = Some(rfc2047_decoder::decode(&self.line_buf[..])?);
+                Ok(self.rfc2047_buf.as_deref())
+            }
         } else if self.next_line_raw().await?.is_some() {
-            self.str_buf = (&*String::from_utf8_lossy(&self.line_buf[..])).to_owned();
-            Ok(Some(self.str_buf.as_str()))
+            self.rfc2047_buf = Some(rfc2047_decoder::decode(&self.line_buf[..])?);
+            Ok(self.rfc2047_buf.as_deref())
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub(crate) async fn next_line(&mut self) -> Result<Option<&str>> {
+        trace!("next_line: called");
+        self.rfc2047_buf = None;
+        if !self.consumed {
+            self.consumed = true;
+            if self.str_buf.is_some() {
+                Ok(Some(self.str_buf.as_deref().unwrap()))
+            } else {
+                self.str_buf = Some((&*String::from_utf8_lossy(&self.line_buf[..])).to_owned());
+                Ok(self.str_buf.as_deref())
+            }
+        } else if self.next_line_raw().await?.is_some() {
+            self.str_buf = Some((&*String::from_utf8_lossy(&self.line_buf[..])).to_owned());
+            Ok(self.str_buf.as_deref())
         } else {
             Ok(None)
         }

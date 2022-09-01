@@ -1,14 +1,10 @@
 use crate::doveadm::fetch::params::ImapField;
-use crate::doveadm::fetch::parser::{FetchFieldRes, Parser};
+use crate::doveadm::fetch::parser::{FetchFieldRes, Parser, FORM_FEED_STR};
 use crate::doveadm::fetch::stdout_reader::StdoutLineReader;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use log::{debug, trace};
 use regex::Regex;
-
-// TODO: must support duplicate keys - go back to Vec instead of hashmap or
-// supply individual header fields allowing for 'Received' and 'DKIM-Signature'
-// to support multiple  occurrences
 
 pub struct HdrParser {
     first_line_re: Regex,
@@ -38,28 +34,59 @@ impl Parser for HdrParser {
     async fn parse_first_field(
         &self,
         reader: &mut StdoutLineReader,
-        _next_re: Option<&Regex>,
+        next_re: &Regex,
     ) -> Result<Option<FetchFieldRes>> {
         trace!("parse_first_field: called");
-        if let Some(line_buf) = reader.next_line_raw().await? {
-            let line = rfc2047_decoder::decode(line_buf).with_context(|| {
-                format!(
-                    "rfc2047_decoder::decode failed on [{}]",
-                    String::from_utf8_lossy(line_buf)
-                )
-            })?;
-            trace!("parse_first_field: got line: [{:?}]", line);
-            if self.first_line_re.is_match(line.as_str()) {
+        if let Some(line) = reader
+            .next_line()
+            .await
+            .with_context(|| "next_line failed".to_owned())?
+        {
+            trace!("parse_first_field: got first line: [{:?}]", line);
+            if self.first_line_re.is_match(line) {
                 let mut res: Vec<(String, String)> = Vec::new();
-                while let Some(line_buf) = reader.next_line_raw().await? {
-                    let line = rfc2047_decoder::decode(line_buf).with_context(|| {
-                        format!(
-                            "rfc2047_decoder::decode failed on [{}]",
-                            String::from_utf8_lossy(line_buf)
-                        )
-                    })?;
+                while let Some(line) = reader
+                    .next_line_rfc2047()
+                    .await
+                    .with_context(|| "parse_first_field: next_line_rfc2047 failed".to_owned())?
+                {
                     trace!("parse_first_field: got next line: [{:?}]", line);
-                    if let Some(captures) = self.subseq_line_re.captures(line.as_str()) {
+                    if line.is_empty() {
+                        match reader.next_line_rfc2047().await.with_context(|| {
+                            "parse_first_field: next_line_rfc2047 failed".to_owned()
+                        })? {
+                            Some(line) => {
+                                if next_re.is_match(line) {
+                                    trace!("parse_first_field: found match for next field, returning results");
+                                    reader.unconsume();
+                                    return Ok(if res.is_empty() {
+                                        None
+                                    } else {
+                                        Some(FetchFieldRes::Hdr(res))
+                                    });
+                                } else {
+                                    let (_, value) =
+                                        res.last_mut().expect("unexpected: last value not found");
+                                    value.push('\n');
+                                    value.push_str(line.as_ref());
+                                }
+                            }
+                            None => {
+                                return Ok(if res.is_empty() {
+                                    None
+                                } else {
+                                    Some(FetchFieldRes::Hdr(res))
+                                });
+                            }
+                        }
+                    } else if line.eq(FORM_FEED_STR) {
+                        trace!("parse_first_field: found form feed, returning results");
+                        return Ok(if res.is_empty() {
+                            None
+                        } else {
+                            Some(FetchFieldRes::Hdr(res))
+                        });
+                    } else if let Some(captures) = self.subseq_line_re.captures(line) {
                         trace!("parse_first_field: adding tagged string");
                         res.push(
                                 (captures
@@ -73,9 +100,6 @@ impl Parser for HdrParser {
                                         .as_str()
                                         .to_owned(),
                                 ));
-                    } else if line.is_empty() {
-                        trace!("parse_first_field: stopping on empty line");
-                        return Ok(Some(FetchFieldRes::Hdr(res)));
                     } else {
                         trace!("parse_first_field: adding untagged string: [{:?}]", line);
                         let (_, value) = res.last_mut().expect("unexpected: last value not found");

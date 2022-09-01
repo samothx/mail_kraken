@@ -77,7 +77,7 @@ macro_rules! string_parser {
             async fn parse_first_field(
                 &self,
                 reader: &mut StdoutLineReader,
-                _next_re: Option<&Regex>,
+                _next_re: &Regex,
             ) -> Result<Option<FetchFieldRes>> {
                 if let Some(line) = reader.next_line().await? {
                     trace!("parse_first_field: [{}] got [{:?}]", $tag, line);
