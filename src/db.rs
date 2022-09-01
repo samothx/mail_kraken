@@ -307,7 +307,7 @@ async fn process_record(
         }
     }
 
-    if received == RECV_REQUIRED {
+    if (received & RECV_REQUIRED) == RECV_REQUIRED {
         let (date_time_sent, offset) =
             if let Some(captures) = date_time_tz_regex.captures(read_buf.date_sent.as_str()) {
                 (
