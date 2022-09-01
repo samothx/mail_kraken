@@ -78,6 +78,19 @@ mod tests {
     }
 
     #[test]
+    fn parse_email_simple_email4() {
+        let parser = EmailParser::new();
+        match parser.parse("<name@domain.tld>,\n") {
+            Ok(res_list) => {
+                assert_eq!(res_list, vec![("name@domain.tld".to_owned(), None)]);
+            }
+            Err(e) => {
+                panic!("{:?}", e);
+            }
+        }
+    }
+
+    #[test]
     fn parse_email_simple_email_with_name() {
         let parser = EmailParser::new();
         match parser.parse(r#"kurt mustermann <name@domain.tld>"#) {

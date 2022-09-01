@@ -186,10 +186,11 @@ pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
         if msg_count % 20 == 0 {
             let duration = chrono::Local::now() - ts_start;
             debug!(
-                "scan: processed {} messages, inserted {} in {} seconds",
+                "scan: processed {} messages, inserted {} in {} seconds, {} inserted/second",
                 msg_count,
                 insert_count,
-                duration.num_seconds()
+                duration.num_seconds(),
+                insert_count * 1000 / duration.num_milliseconds() as usize
             );
         }
     }
@@ -205,7 +206,7 @@ pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
         msg_count,
         insert_count,
         duration.num_seconds(),
-        insert_count * 1000 / duration.num_milliseconds()
+        insert_count * 1000 / duration.num_milliseconds() as usize
     );
     info!(
         "scan: done parsing records: fetch exit status: {}",
