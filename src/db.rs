@@ -341,7 +341,7 @@ async fn process_record(
         );
         if DO_INSERT {
             r#"insert into record (user_id,uid,guid,mailbox,dt_sent,tz_sent,dt_recv,dt_saved,size,mail_subj)
- values(:user_id,:uid,:guid,:mailbox,:dt_sent,:tz_sent,:dt_recv,:dt_saved,:size,:to,:from,:subj)"#
+ values(:user_id,:uid,:guid,:mailbox,:dt_sent,:tz_sent,:dt_recv,:dt_saved,:size,:to,:subj)"#
                 .with(params! {
             "user_id"=>user_id,
             "uid"=>read_buf.uid.as_str(),
@@ -352,7 +352,7 @@ async fn process_record(
             "dt_recv"=>read_buf.date_received.as_str(),
             "dt_saved"=>read_buf.date_saved.as_str(),
             "size"=>read_buf.size_physical,
-            "mail_subj"=>read_buf.subj.as_str()})
+            "subj"=>read_buf.subj.as_str()})
                 .ignore(&mut wa.db_conn)
                 .await
                 .with_context(|| "failed to insert record".to_owned())?;
