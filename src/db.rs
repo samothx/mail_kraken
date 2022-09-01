@@ -341,7 +341,7 @@ async fn process_record(
         );
         if DO_INSERT {
             r#"insert into record (user_id,uid,guid,mailbox,dt_sent,tz_sent,dt_recv,dt_saved,size,mail_subj)
- values(:user_id,:uid,:guid,:mailbox,:dt_sent,:tz_sent,:dt_recv,:dt_saved,:size,:to,:subj)"#
+ values(:user_id,:uid,:guid,:mailbox,:dt_sent,:tz_sent,:dt_recv,:dt_saved,:size,:subj)"#
                 .with(params! {
             "user_id"=>user_id,
             "uid"=>read_buf.uid.as_str(),
