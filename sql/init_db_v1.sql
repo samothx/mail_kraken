@@ -1,3 +1,4 @@
+
 CREATE TABLE `db_ver` (
     `version` mediumint unsigned NOT NULL COMMENT 'Database version',
     PRIMARY KEY (`version`)
@@ -21,8 +22,6 @@ CREATE TABLE `record` (
     `dt_recv` DATETIME NOT NULL,
     `dt_saved` DATETIME NOT NULL,
     `size` bigint unsigned NOT NULL,
-    `mail_to` TEXT NOT NULL,
-    `mail_from` varchar(2048) NOT NULL,
     `mail_subj` TEXT NOT NULL,
     UNIQUE (user_id,uid,mailbox),
     UNIQUE (guid),
@@ -31,6 +30,36 @@ CREATE TABLE `record` (
         FOREIGN KEY (user_id) REFERENCES user (id)
             ON DELETE CASCADE
             ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `mail_to` (
+    `record_id` bigint unsigned NOT NULL,
+    `name` varchar(256),
+    `email` varchar(256) NOT NULL,
+    CONSTRAINT `fk_mail_to_record_id`
+        FOREIGN KEY (record_id) REFERENCES record (id)
+            ON DELETE CASCADE
+            ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `mail_from` (
+       `record_id` bigint unsigned NOT NULL,
+       `name` varchar(256),
+       `email` varchar(256) NOT NULL,
+       CONSTRAINT `fk_mail_from_record_id`
+           FOREIGN KEY (record_id) REFERENCES record (id)
+               ON DELETE CASCADE
+               ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `mail_cc` (
+    `record_id` bigint unsigned NOT NULL,
+    `name` varchar(256),
+    `email` varchar(256) NOT NULL,
+    CONSTRAINT `fk_mail_cc_record_id`
+     FOREIGN KEY (record_id) REFERENCES record (id)
+         ON DELETE CASCADE
+         ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE `header` (
@@ -55,6 +84,10 @@ CREATE TABLE `imap_flag` (
               ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE VIEW whitelist
-    AS SELECT DISTINCT rec.user_id, rec.mail_from FROM record as rec, imap_flag as flag
-        WHERE rec.id=flag.record_id and flag.name='\\Answered'
+
+
+# CREATE VIEW whitelist
+#     AS SELECT DISTINCT rec.user_id, rec.mail_from FROM record as rec, imap_flag as flag
+#         WHERE rec.id=flag.record_id and flag.name='\\Answered'
+
+INSERT INTO db_ver (version) VALUES(1);

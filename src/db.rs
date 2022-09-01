@@ -6,6 +6,9 @@ use mysql_async::{params, Conn, Pool};
 use regex::Regex;
 use tokio::task::JoinHandle;
 
+mod email_parser;
+use email_parser::EmailParser;
+
 const DB_VERSION: u32 = 1;
 const DO_INSERT: bool = true;
 
@@ -31,12 +34,6 @@ pub async fn init_db(pool: Pool) -> Result<()> {
                 });
             }
         }
-
-        r"insert into db_ver (version) values(:version)"
-            .with(params! { "version" => DB_VERSION })
-            .ignore(&mut db_conn)
-            .await?;
-        info!("database was initialized successfully");
 
         Ok(())
     } else if !tables.contains(&"db_ver".to_owned()) {
@@ -119,10 +116,12 @@ const RECV_HDRS: u32 = 0x100;
 const RECV_FROM: u32 = 0x200;
 const RECV_TO: u32 = 0x400;
 const RECV_SUBJ: u32 = 0x800;
+const RECV_CC: u32 = 0x1000;
 
-const RECV_FROM_HDR: u32 = RECV_TO | RECV_FROM | RECV_SUBJ;
+const RECV_HEADERS: u32 = RECV_TO | RECV_FROM | RECV_SUBJ;
+const RECV_HEADERS_ALL: u32 = RECV_HEADERS | RECV_CC;
 
-const RECV_ALL: u32 = RECV_UID
+const RECV_REQUIRED: u32 = RECV_UID
     | RECV_GUID
     | RECV_DATE_SAVD
     | RECV_DATE_RECV
@@ -131,12 +130,13 @@ const RECV_ALL: u32 = RECV_UID
     | RECV_MAILBOX
     | RECV_FLAGS
     | RECV_HDRS
-    | RECV_FROM_HDR;
+    | RECV_HDRS;
 
 pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
     debug!("scan: fetching,  id: {} ", user_id);
 
     let date_time_tz_regex = Regex::new(r"^(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s\(([^)]+)\)$")?;
+    let email_parser = EmailParser::new();
 
     let fetch_params = FetchParams::new(user)
         .add_field(ImapField::Flags)
@@ -166,7 +166,16 @@ pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
     } {
         trace!("got record: {:?}", record);
         msg_count += 1;
-        match process_record(&mut wa, user_id, record, &mut read_buf, &date_time_tz_regex).await {
+        match process_record(
+            &mut wa,
+            user_id,
+            record,
+            &mut read_buf,
+            &date_time_tz_regex,
+            &email_parser,
+        )
+        .await
+        {
             Ok(_) => {
                 insert_count += 1;
             }
@@ -211,6 +220,7 @@ async fn process_record(
     record: FetchRecord,
     read_buf: &mut ReadBuf,
     date_time_tz_regex: &Regex,
+    email_parser: &EmailParser,
 ) -> Result<()> {
     let mut received = 0;
     for item in record.into_iter() {
@@ -251,24 +261,30 @@ async fn process_record(
             FetchFieldRes::Hdr(val) => {
                 read_buf.hdr = val;
                 received |= RECV_HDRS
-            } /*
-              FetchFieldRes::Generic((_imap_field, _value)) => {
-                  todo!()
-              }
-               */
+            }
         }
     }
 
-    if (received & RECV_HDRS) == RECV_HDRS {
-        let found = read_buf.hdr.iter().any(|(name, value)| {
+    if (received & RECV_HEADERS) == RECV_HEADERS {
+        for (name, value) in read_buf.hdr.iter() {
             match name.as_str() {
                 "To" => {
-                    read_buf.to = value.to_owned();
+                    read_buf.to = email_parser
+                        .parse(value.as_str())
+                        .with_context(|| format!("failed to parse \"To\" header from {}", value))?;
                     received |= RECV_TO;
                 }
                 "From" => {
-                    read_buf.from = value.to_owned();
+                    read_buf.from = email_parser.parse(value.as_str()).with_context(|| {
+                        format!("failed to parse \"From\" header from {}", value)
+                    })?;
                     received |= RECV_FROM;
+                }
+                "CC" => {
+                    read_buf.from = email_parser
+                        .parse(value.as_str())
+                        .with_context(|| format!("failed to parse \"CC\" header from {}", value))?;
+                    received |= RECV_CC;
                 }
                 "Subject" => {
                     read_buf.subj = value.to_owned();
@@ -276,9 +292,11 @@ async fn process_record(
                 }
                 _ => (),
             };
-            (received & RECV_FROM_HDR) == RECV_FROM_HDR
-        });
-        if !found {
+            if (received & RECV_HEADERS_ALL) == RECV_HEADERS_ALL {
+                break;
+            }
+        }
+        if (received & RECV_HEADERS) != RECV_HEADERS {
             let mut header_names = String::new();
             read_buf.hdr.iter().for_each(|(name, _)| {
                 header_names.push_str(format!("\"{}\" ", name).as_str());
@@ -290,7 +308,7 @@ async fn process_record(
         }
     }
 
-    if received == RECV_ALL {
+    if received == RECV_REQUIRED {
         let (date_time_sent, offset) =
             if let Some(captures) = date_time_tz_regex.captures(read_buf.date_sent.as_str()) {
                 (
@@ -334,8 +352,6 @@ async fn process_record(
             "dt_recv"=>read_buf.date_received.as_str(),
             "dt_saved"=>read_buf.date_saved.as_str(),
             "size"=>read_buf.size_physical,
-            "to"=>read_buf.to.as_str(),
-            "from"=>read_buf.from.as_str(),
             "subj"=>read_buf.subj.as_str()})
                 .ignore(&mut wa.db_conn)
                 .await
@@ -362,6 +378,39 @@ async fn process_record(
                                     "value" => hdr.1.to_owned()}
                         })).batch(&mut wa.db_conn).await.with_context(|| "process_record: failed to insert headers".to_owned())?;
                 }
+                if !read_buf.to.is_empty() {
+                    r"insert into mail_to (record_id, name, email) values(:record_id,:name,:email)"
+                        .with(read_buf.to.iter().map(|(email, name)| {
+                            params! {   "record_id"=> record_id,
+                            "name" => if let Some(name) = name { Some(name.clone()) } else { None },
+                            "email" => email.clone() }
+                        }))
+                        .batch(&mut wa.db_conn)
+                        .await
+                        .with_context(|| "process_record: failed to insert mail_to".to_owned())?;
+                }
+                if !read_buf.from.is_empty() {
+                    r"insert into mail_from (record_id, name, email) values(:record_id,:name,:email)"
+                        .with(read_buf.from.iter().map(|(email, name)| {
+                            params! {   "record_id"=> record_id,
+                            "name" => if let Some(name) = name { Some(name.clone()) } else { None },
+                            "email" => email.clone() }
+                        }))
+                        .batch(&mut wa.db_conn)
+                        .await
+                        .with_context(|| "process_record: failed to insert mail_from".to_owned())?;
+                }
+                if !read_buf.cc.is_empty() {
+                    r"insert into mail_cc (record_id, name, email) values(:record_id,:name,:email)"
+                        .with(read_buf.cc.iter().map(|(email, name)| {
+                            params! {   "record_id"=> record_id,
+                            "name" => if let Some(name) = name { Some(name.clone()) } else { None },
+                            "email" => email.clone() }
+                        }))
+                        .batch(&mut wa.db_conn)
+                        .await
+                        .with_context(|| "process_record: failed to insert mail_cc".to_owned())?;
+                }
                 Ok(())
             } else {
                 Err(anyhow!("process_record: failed to insert record"))
@@ -374,7 +423,7 @@ async fn process_record(
         Err(anyhow!(
             "process_record: missing FetchFieldRes: received: {:x}, expected: {:x}",
             received,
-            RECV_ALL
+            RECV_REQUIRED
         ))
     }
 }
@@ -393,8 +442,9 @@ struct ReadBuf {
     date_saved: String,
     date_sent: String,
     size_physical: usize,
-    to: String,
-    from: String,
+    to: Vec<(String, Option<String>)>,
+    from: Vec<(String, Option<String>)>,
+    cc: Vec<(String, Option<String>)>,
     subj: String,
 }
 
@@ -410,8 +460,9 @@ impl ReadBuf {
             date_saved: String::new(),
             date_sent: String::new(),
             size_physical: 0,
-            to: String::new(),
-            from: String::new(),
+            to: Vec::new(),
+            from: Vec::new(),
+            cc: Vec::new(),
             subj: String::new(),
         }
     }
