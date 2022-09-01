@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use regex::Regex;
 
-const EMAIL_REGEX: &str = r#"(([^<^,]*)\s+<([^>^,]+)>|([^,]+)),?\s*"#;
+const EMAIL_REGEX: &str = r#"(([^<^,]*)\s+<([^>^,]+)>|<?([^,^>^<]+)>?),?\s*"#;
 
 pub struct EmailParser {
     regex: Regex,

@@ -199,11 +199,13 @@ pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
         .get_exit_status()
         .await
         .with_context(|| "failed to retrieve exit status from fetch process".to_owned())?;
+
     info!(
-        "scan: processed {} messages, inserted {} in {} seconds",
+        "scan: processed {} messages, inserted {} in {} seconds, {} inserted/second",
         msg_count,
         insert_count,
-        duration.num_seconds()
+        duration.num_seconds(),
+        insert_count * 1000 / duration.num_milliseconds()
     );
     info!(
         "scan: done parsing records: fetch exit status: {}",
