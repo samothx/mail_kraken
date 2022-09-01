@@ -12,6 +12,40 @@ use email_parser::EmailParser;
 const DB_VERSION: u32 = 1;
 const DO_INSERT: bool = true;
 
+const HDR_NAME_FROM: &str = "From";
+const HDR_NAME_TO: &str = "To";
+const HDR_NAME_CC: &str = "CC";
+const HDR_NAME_BCC: &str = "BCC";
+const HDR_NAME_SUBJ: &str = "Subject";
+
+const RECV_UID: u32 = 0x1;
+const RECV_GUID: u32 = 0x2;
+const RECV_DATE_RECV: u32 = 0x4;
+const RECV_DATE_SAVD: u32 = 0x8;
+const RECV_DATE_SENT: u32 = 0x10;
+const RECV_SIZE: u32 = 0x20;
+const RECV_MAILBOX: u32 = 0x40;
+const RECV_FLAGS: u32 = 0x80;
+const RECV_HDRS: u32 = 0x100;
+const RECV_FROM: u32 = 0x200;
+const RECV_TO: u32 = 0x400;
+const RECV_SUBJ: u32 = 0x800;
+const RECV_CC: u32 = 0x1000;
+const RECV_BCC: u32 = 0x2000;
+
+const RECV_HEADERS: u32 = RECV_TO | RECV_FROM | RECV_SUBJ;
+const RECV_HEADERS_ALL: u32 = RECV_HEADERS | RECV_CC | RECV_BCC;
+
+const RECV_REQUIRED: u32 = RECV_UID
+    | RECV_GUID
+    | RECV_DATE_SAVD
+    | RECV_DATE_RECV
+    | RECV_DATE_SENT
+    | RECV_SIZE
+    | RECV_MAILBOX
+    | RECV_FLAGS
+    | RECV_HDRS;
+
 pub async fn init_db(pool: Pool) -> Result<()> {
     debug!("init: entered");
     let mut db_conn = pool
@@ -103,33 +137,6 @@ pub async fn init_user(pool: Pool, user: &str) -> Result<Option<JoinHandle<Resul
         Ok(None)
     }
 }
-
-const RECV_UID: u32 = 0x1;
-const RECV_GUID: u32 = 0x2;
-const RECV_DATE_RECV: u32 = 0x4;
-const RECV_DATE_SAVD: u32 = 0x8;
-const RECV_DATE_SENT: u32 = 0x10;
-const RECV_SIZE: u32 = 0x20;
-const RECV_MAILBOX: u32 = 0x40;
-const RECV_FLAGS: u32 = 0x80;
-const RECV_HDRS: u32 = 0x100;
-const RECV_FROM: u32 = 0x200;
-const RECV_TO: u32 = 0x400;
-const RECV_SUBJ: u32 = 0x800;
-const RECV_CC: u32 = 0x1000;
-
-const RECV_HEADERS: u32 = RECV_TO | RECV_FROM | RECV_SUBJ;
-const RECV_HEADERS_ALL: u32 = RECV_HEADERS | RECV_CC;
-
-const RECV_REQUIRED: u32 = RECV_UID
-    | RECV_GUID
-    | RECV_DATE_SAVD
-    | RECV_DATE_RECV
-    | RECV_DATE_SENT
-    | RECV_SIZE
-    | RECV_MAILBOX
-    | RECV_FLAGS
-    | RECV_HDRS;
 
 pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
     debug!("scan: fetching,  id: {} ", user_id);
@@ -270,25 +277,31 @@ async fn process_record(
     if (received & RECV_HDRS) == RECV_HDRS {
         for (name, value) in read_buf.hdr.iter() {
             match name.as_str() {
-                "To" => {
+                HDR_NAME_TO => {
                     read_buf.to = email_parser
                         .parse(value.as_str())
                         .with_context(|| format!("failed to parse \"To\" header from {}", value))?;
                     received |= RECV_TO;
                 }
-                "From" => {
+                HDR_NAME_FROM => {
                     read_buf.from = email_parser.parse(value.as_str()).with_context(|| {
                         format!("failed to parse \"From\" header from {}", value)
                     })?;
                     received |= RECV_FROM;
                 }
-                "CC" => {
-                    read_buf.from = email_parser
+                HDR_NAME_CC => {
+                    read_buf.cc = email_parser
                         .parse(value.as_str())
                         .with_context(|| format!("failed to parse \"CC\" header from {}", value))?;
                     received |= RECV_CC;
                 }
-                "Subject" => {
+                HDR_NAME_BCC => {
+                    read_buf.bcc = email_parser
+                        .parse(value.as_str())
+                        .with_context(|| format!("failed to parse \"CC\" header from {}", value))?;
+                    received |= RECV_BCC;
+                }
+                HDR_NAME_SUBJ => {
                     read_buf.subj = value.to_owned();
                     received |= RECV_SUBJ;
                 }
@@ -373,7 +386,15 @@ async fn process_record(
                 }
                 if !read_buf.hdr.is_empty() {
                     r"insert into header (record_id, seq, name, value) values(:record_id,:seq,:name,:value)"
-                        .with(read_buf.hdr.iter().enumerate().map(|(idx, hdr)| {
+                        .with(read_buf.hdr.iter()
+                            .filter(|(name,_value)|
+                                match name.as_str() {
+                                    HDR_NAME_FROM | HDR_NAME_TO | HDR_NAME_SUBJ | HDR_NAME_CC | HDR_NAME_BCC => false,
+                                    _ => true
+                                }
+                            )
+                            .enumerate()
+                            .map(|(idx, hdr)| {
                             params! {   "record_id"=> record_id,
                                     "seq"=> idx,
                                     "name" => hdr.0.to_owned(),
@@ -413,6 +434,17 @@ async fn process_record(
                         .await
                         .with_context(|| "process_record: failed to insert mail_cc".to_owned())?;
                 }
+                if !read_buf.bcc.is_empty() {
+                    r"insert into mail_bcc (record_id, name, email) values(:record_id,:name,:email)"
+                        .with(read_buf.cc.iter().map(|(email, name)| {
+                            params! {   "record_id"=> record_id,
+                            "name" => if let Some(name) = name { Some(name.clone()) } else { None },
+                            "email" => email.clone() }
+                        }))
+                        .batch(&mut wa.db_conn)
+                        .await
+                        .with_context(|| "process_record: failed to insert mail_bcc".to_owned())?;
+                }
                 Ok(())
             } else {
                 Err(anyhow!("process_record: failed to insert record"))
@@ -447,6 +479,7 @@ struct ReadBuf {
     to: Vec<(String, Option<String>)>,
     from: Vec<(String, Option<String>)>,
     cc: Vec<(String, Option<String>)>,
+    bcc: Vec<(String, Option<String>)>,
     subj: String,
 }
 
@@ -465,6 +498,7 @@ impl ReadBuf {
             to: Vec::new(),
             from: Vec::new(),
             cc: Vec::new(),
+            bcc: Vec::new(),
             subj: String::new(),
         }
     }

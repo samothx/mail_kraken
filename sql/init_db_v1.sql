@@ -62,6 +62,16 @@ CREATE TABLE `mail_cc` (
          ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE `mail_bcc` (
+    `record_id` bigint unsigned NOT NULL,
+    `name` varchar(256),
+    `email` varchar(256) NOT NULL,
+    CONSTRAINT `fk_mail_bcc_record_id`
+       FOREIGN KEY (record_id) REFERENCES record (id)
+           ON DELETE CASCADE
+           ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE `header` (
     `record_id` bigint unsigned NOT NULL,
     `seq` mediumint unsigned NOT NULL,
