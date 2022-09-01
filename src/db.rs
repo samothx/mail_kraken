@@ -129,7 +129,6 @@ const RECV_REQUIRED: u32 = RECV_UID
     | RECV_SIZE
     | RECV_MAILBOX
     | RECV_FLAGS
-    | RECV_HDRS
     | RECV_HDRS;
 
 pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
@@ -265,7 +264,7 @@ async fn process_record(
         }
     }
 
-    if (received & RECV_HEADERS) == RECV_HEADERS {
+    if (received & RECV_HDRS) == RECV_HDRS {
         for (name, value) in read_buf.hdr.iter() {
             match name.as_str() {
                 "To" => {
