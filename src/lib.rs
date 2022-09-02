@@ -1,5 +1,3 @@
-extern crate core;
-
 use anyhow::{anyhow, Context, Result};
 use log::{error, info};
 use mod_logger::Logger;

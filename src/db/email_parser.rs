@@ -2,7 +2,8 @@ use anyhow::{anyhow, Result};
 use log::debug;
 use regex::Regex;
 
-const EMAIL_NAME_REGEX: &str = r#"(([^<^,]*)\s+<([^>^,]+)>|<?([^,^>^<]+)>?),?\s*"#;
+// const EMAIL_NAME_REGEX: &str = r#"(([^<^,]*)\s+<([^>^,]+)>|<?([^,^>^<]+)>?),?\s*"#;
+const EMAIL_NAME_REGEX: &str = r#"(("[^"]+"|[^"^<^,]+)\s+<([^>^,]+)>|<?([^,^>^<]+)>?),?\s*"#;
 // const EMAIL_REGEX: &str = r#"^("(?:[!#-\[\]-\u{10FFFF}]|\\[\t -\u{10FFFF}])*"|[!#-'*+\-/-9=?A-Z\^-\u{10FFFF}](?:\.?[!#-'*+\-/-9=?A-Z\^-\u{10FFFF}])*)@([!#-'*+\-/-9=?A-Z\^-\u{10FFFF}](?:\.?[!#-'*+\-/-9=?A-Z\^-\u{10FFFF}])*|\[[!-Z\^-\u{10FFFF}]*\])$/u"#;
 const EMAIL_REGEX: &str = r#"([-!#-'*+/-9=?A-Z^-~]+(\.[-!#-'*+/-9=?A-Z^-~]+)*|"([]!#-[^-~ \t]|(\\[\t -~]))+")@([-!#-'*+/-9=?A-Z^-~]+(\.[-!#-'*+/-9=?A-Z^-~]+)*|\[[\t -Z^-~]*])"#;
 pub struct EmailParser {
@@ -143,7 +144,7 @@ mod tests {
     #[test]
     fn parse_email_simple_email_with_name2() {
         let parser = EmailParser::new();
-        match parser.parse(r#"\"Kauffmann, Ole\" <Ole.Kauffmann@ipdynamics.de>"#) {
+        match parser.parse(r#""Kauffmann, Ole" <Ole.Kauffmann@ipdynamics.de>"#) {
             Ok(res_list) => {
                 assert_eq!(
                     res_list,
@@ -240,6 +241,11 @@ Petersen Jörn <joernp@arcor.de>,
         let parser = EmailParser::new();
         match parser.parse(EMAILS) {
             Ok(res_list) => {
+                res_list.iter().for_each(|(email, name, valid)| {
+                    if !valid {
+                        panic!("invalid: {}, {:?}", email.as_str(), name)
+                    }
+                });
                 assert_eq!(res_list.len(), 36);
             }
             Err(e) => {
