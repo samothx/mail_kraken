@@ -121,7 +121,7 @@ mod tests {
     }
 
     #[test]
-    fn parse_email_simple_email_with_name() {
+    fn parse_email_simple_email_with_name1() {
         let parser = EmailParser::new();
         match parser.parse(r#"kurt mustermann <name@domain.tld>"#) {
             Ok(res_list) => {
@@ -130,6 +130,26 @@ mod tests {
                     vec![(
                         "name@domain.tld".to_owned(),
                         Some("kurt mustermann".to_owned()),
+                        true
+                    )]
+                );
+            }
+            Err(e) => {
+                panic!("{:?}", e);
+            }
+        }
+    }
+
+    #[test]
+    fn parse_email_simple_email_with_name2() {
+        let parser = EmailParser::new();
+        match parser.parse(r#"\"Kauffmann, Ole\" <Ole.Kauffmann@ipdynamics.de>"#) {
+            Ok(res_list) => {
+                assert_eq!(
+                    res_list,
+                    vec![(
+                        "Ole.Kauffmann@ipdynamics.de".to_owned(),
+                        Some("\"Kauffmann, Ole\"".to_owned()),
                         true
                     )]
                 );
