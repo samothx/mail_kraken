@@ -408,7 +408,7 @@ async fn process_record(
                         })).batch(&mut wa.db_conn).await.with_context(|| "process_record: failed to insert headers".to_owned())?;
                 }
                 if !read_buf.to.is_empty() {
-                    r"insert into mail_to (record_id, name, email,valid) values(:record_id,:name,:email,:valid)"
+                    r"insert into mail_to (record_id, name, email) values(:record_id,:name,:email)"
                         .with(read_buf.to.iter().filter(|(_,_,valid)| *valid).map(|(email, name,_)| {
                             params! {   "record_id"=> record_id,
                             "name" => if let Some(name) = name { Some(name.clone()) } else { None },
