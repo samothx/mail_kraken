@@ -408,11 +408,11 @@ async fn process_record(
                         })).batch(&mut wa.db_conn).await.with_context(|| "process_record: failed to insert headers".to_owned())?;
                 }
                 if !read_buf.to.is_empty() {
-                    r"insert into mail_to (record_id, name, email) values(:record_id,:name,:email)"
-                        .with(read_buf.to.iter().map(|(email, name)| {
+                    r"insert into mail_to (record_id, name, email,valid) values(:record_id,:name,:email,:valid)"
+                        .with(read_buf.to.iter().filter(|(_,_,valid)| *valid).map(|(email, name,_)| {
                             params! {   "record_id"=> record_id,
                             "name" => if let Some(name) = name { Some(name.clone()) } else { None },
-                            "email" => email.clone() }
+                            "email" => email.clone()}
                         }))
                         .batch(&mut wa.db_conn)
                         .await
@@ -420,10 +420,10 @@ async fn process_record(
                 }
                 if !read_buf.from.is_empty() {
                     r"insert into mail_from (record_id, name, email) values(:record_id,:name,:email)"
-                        .with(read_buf.from.iter().map(|(email, name)| {
+                        .with(read_buf.from.iter().filter(|(_,_,valid)| *valid).map(|(email, name,_)| {
                             params! {   "record_id"=> record_id,
                             "name" => if let Some(name) = name { Some(name.clone()) } else { None },
-                            "email" => email.clone() }
+                            "email" => email.clone()}
                         }))
                         .batch(&mut wa.db_conn)
                         .await
@@ -431,7 +431,7 @@ async fn process_record(
                 }
                 if !read_buf.cc.is_empty() {
                     r"insert into mail_cc (record_id, name, email) values(:record_id,:name,:email)"
-                        .with(read_buf.cc.iter().map(|(email, name)| {
+                        .with(read_buf.cc.iter().filter(|(_,_,valid)| *valid).map(|(email, name, _)| {
                             params! {   "record_id"=> record_id,
                             "name" => if let Some(name) = name { Some(name.clone()) } else { None },
                             "email" => email.clone() }
@@ -442,7 +442,7 @@ async fn process_record(
                 }
                 if !read_buf.bcc.is_empty() {
                     r"insert into mail_bcc (record_id, name, email) values(:record_id,:name,:email)"
-                        .with(read_buf.cc.iter().map(|(email, name)| {
+                        .with(read_buf.cc.iter().filter(|(_,_,valid)| *valid).map(|(email, name, _)| {
                             params! {   "record_id"=> record_id,
                             "name" => if let Some(name) = name { Some(name.clone()) } else { None },
                             "email" => email.clone() }
@@ -482,10 +482,10 @@ struct ReadBuf {
     date_saved: String,
     date_sent: String,
     size_physical: usize,
-    to: Vec<(String, Option<String>)>,
-    from: Vec<(String, Option<String>)>,
-    cc: Vec<(String, Option<String>)>,
-    bcc: Vec<(String, Option<String>)>,
+    to: Vec<(String, Option<String>, bool)>,
+    from: Vec<(String, Option<String>, bool)>,
+    cc: Vec<(String, Option<String>, bool)>,
+    bcc: Vec<(String, Option<String>, bool)>,
     subj: String,
 }
 

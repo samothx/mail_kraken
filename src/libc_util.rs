@@ -252,7 +252,7 @@ mod tests {
 
         let user_name = "_xyz";
         match UserInfo::from_name(user_name) {
-            Ok(user_info) => {
+            Ok(_) => {
                 panic!("unexpected: UserInfo created for user {}", user_name);
             }
             Err(e) => {

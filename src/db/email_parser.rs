@@ -1,31 +1,61 @@
 use anyhow::{anyhow, Result};
+use log::debug;
 use regex::Regex;
 
-const EMAIL_REGEX: &str = r#"(([^<^,]*)\s+<([^>^,]+)>|<?([^,^>^<]+)>?),?\s*"#;
-
+const EMAIL_NAME_REGEX: &str = r#"(([^<^,]*)\s+<([^>^,]+)>|<?([^,^>^<]+)>?),?\s*"#;
+// const EMAIL_REGEX: &str = r#"^("(?:[!#-\[\]-\u{10FFFF}]|\\[\t -\u{10FFFF}])*"|[!#-'*+\-/-9=?A-Z\^-\u{10FFFF}](?:\.?[!#-'*+\-/-9=?A-Z\^-\u{10FFFF}])*)@([!#-'*+\-/-9=?A-Z\^-\u{10FFFF}](?:\.?[!#-'*+\-/-9=?A-Z\^-\u{10FFFF}])*|\[[!-Z\^-\u{10FFFF}]*\])$/u"#;
+const EMAIL_REGEX: &str = r#"([-!#-'*+/-9=?A-Z^-~]+(\.[-!#-'*+/-9=?A-Z^-~]+)*|"([]!#-[^-~ \t]|(\\[\t -~]))+")@([-!#-'*+/-9=?A-Z^-~]+(\.[-!#-'*+/-9=?A-Z^-~]+)*|\[[\t -Z^-~]*])"#;
 pub struct EmailParser {
-    regex: Regex,
+    split_regex: Regex,
+    email_regex: Regex,
 }
 
 impl EmailParser {
     pub fn new() -> EmailParser {
         Self {
-            regex: Regex::new(EMAIL_REGEX)
-                .expect(format!("failed to create regex from [{}]", EMAIL_REGEX).as_str()),
+            split_regex: Regex::new(EMAIL_NAME_REGEX)
+                .expect(format!("failed to create regex from [{}]", EMAIL_NAME_REGEX).as_str()),
+            email_regex: Regex::new(EMAIL_REGEX)
+                .expect(format!("failed to create regex from [{}]", EMAIL_NAME_REGEX).as_str()),
         }
     }
 
-    pub fn parse(&self, emails: &str) -> Result<Vec<(String, Option<String>)>> {
-        let captures = self.regex.captures_iter(emails);
+    pub fn parse(&self, emails: &str) -> Result<Vec<(String, Option<String>, bool)>> {
+        let captures = self.split_regex.captures_iter(emails);
         let mut res = Vec::new();
         for cap in captures {
             if let Some(email) = cap.get(4) {
-                res.push((email.as_str().to_owned(), None))
+                if self.email_regex.is_match(email.as_str()) {
+                    res.push((email.as_str().to_owned(), None, true))
+                } else {
+                    debug!(
+                        "parse: invalid email: [{}] -> [{}] -> [{}]",
+                        emails,
+                        cap.get(0).unwrap().as_str(),
+                        email.as_str()
+                    );
+                    res.push((email.as_str().to_owned(), None, false))
+                }
             } else if let Some(email) = cap.get(3) {
-                res.push((
-                    email.as_str().to_owned(),
-                    cap.get(2).map(|name| name.as_str().to_owned()),
-                ))
+                if self.email_regex.is_match(email.as_str()) {
+                    res.push((
+                        email.as_str().to_owned(),
+                        cap.get(2).map(|name| name.as_str().to_owned()),
+                        true,
+                    ))
+                } else {
+                    debug!(
+                        "parse: invalid email: [{}] -> [{}] -> [{}]",
+                        emails,
+                        cap.get(0).unwrap().as_str(),
+                        email.as_str()
+                    );
+                    res.push((
+                        email.as_str().to_owned(),
+                        cap.get(2).map(|name| name.as_str().to_owned()),
+                        false,
+                    ))
+                }
             }
         }
         if res.len() > 0 {
@@ -42,9 +72,9 @@ mod tests {
     #[test]
     fn parse_email_simple_email1() {
         let parser = EmailParser::new();
-        match parser.parse("name@domain.tld") {
+        match parser.parse("info@etnur.net") {
             Ok(res_list) => {
-                assert_eq!(res_list, vec![("name@domain.tld".to_owned(), None)]);
+                assert_eq!(res_list, vec![("info@etnur.net".to_owned(), None, true)]);
             }
             Err(e) => {
                 panic!("{:?}", e);
@@ -56,7 +86,7 @@ mod tests {
         let parser = EmailParser::new();
         match parser.parse("name@domain.tld,") {
             Ok(res_list) => {
-                assert_eq!(res_list, vec![("name@domain.tld".to_owned(), None)]);
+                assert_eq!(res_list, vec![("name@domain.tld".to_owned(), None, true)]);
             }
             Err(e) => {
                 panic!("{:?}", e);
@@ -69,7 +99,7 @@ mod tests {
         let parser = EmailParser::new();
         match parser.parse("name@domain.tld,\n") {
             Ok(res_list) => {
-                assert_eq!(res_list, vec![("name@domain.tld".to_owned(), None)]);
+                assert_eq!(res_list, vec![("name@domain.tld".to_owned(), None, true)]);
             }
             Err(e) => {
                 panic!("{:?}", e);
@@ -82,7 +112,7 @@ mod tests {
         let parser = EmailParser::new();
         match parser.parse("<name@domain.tld>,\n") {
             Ok(res_list) => {
-                assert_eq!(res_list, vec![("name@domain.tld".to_owned(), None)]);
+                assert_eq!(res_list, vec![("name@domain.tld".to_owned(), None, true)]);
             }
             Err(e) => {
                 panic!("{:?}", e);
@@ -99,7 +129,8 @@ mod tests {
                     res_list,
                     vec![(
                         "name@domain.tld".to_owned(),
-                        Some("kurt mustermann".to_owned())
+                        Some("kurt mustermann".to_owned()),
+                        true
                     )]
                 );
             }
@@ -117,8 +148,8 @@ mod tests {
                 assert_eq!(
                     res_list,
                     vec![
-                        ("name1@domain1.tld1".to_owned(), None),
-                        ("name2@domain2.tld2".to_owned(), None)
+                        ("name1@domain1.tld1".to_owned(), None, true),
+                        ("name2@domain2.tld2".to_owned(), None, true)
                     ]
                 );
             }
@@ -136,8 +167,8 @@ mod tests {
                 assert_eq!(
                     res_list,
                     vec![
-                        ("name1@domain1.tld1".to_owned(), None),
-                        ("name2@domain2.tld2".to_owned(), None)
+                        ("name1@domain1.tld1".to_owned(), None, true),
+                        ("name2@domain2.tld2".to_owned(), None, true)
                     ]
                 );
             }
