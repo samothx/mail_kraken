@@ -17,6 +17,7 @@ const HDR_NAME_TO: &str = "To";
 const HDR_NAME_CC: &str = "CC";
 const HDR_NAME_BCC: &str = "BCC";
 const HDR_NAME_SUBJ: &str = "Subject";
+const HDR_NAME_RECV: &str = "Received";
 
 const RECV_UID: u32 = 0x1;
 const RECV_GUID: u32 = 0x2;
@@ -32,9 +33,10 @@ const RECV_TO: u32 = 0x400;
 const RECV_SUBJ: u32 = 0x800;
 const RECV_CC: u32 = 0x1000;
 const RECV_BCC: u32 = 0x2000;
+const RECV_RECEIVED: u32 = 0x4000;
 
 const RECV_HEADERS: u32 = RECV_TO | RECV_FROM | RECV_SUBJ;
-const RECV_HEADERS_ALL: u32 = RECV_HEADERS | RECV_CC | RECV_BCC;
+const RECV_HEADERS_ALL: u32 = RECV_HEADERS | RECV_CC | RECV_BCC | RECV_RECEIVED;
 
 const RECV_REQUIRED: u32 = RECV_UID
     | RECV_GUID
@@ -277,6 +279,9 @@ async fn process_record(
     if (received & RECV_HDRS) == RECV_HDRS {
         for (name, value) in read_buf.hdr.iter() {
             match name.as_str() {
+                HDR_NAME_RECV => {
+                    received |= RECV_RECEIVED;
+                }
                 HDR_NAME_TO => {
                     read_buf.to = email_parser
                         .parse(value.as_str())
@@ -355,8 +360,8 @@ async fn process_record(
             offset
         );
         if DO_INSERT {
-            r#"insert into record (user_id,uid,guid,mailbox,dt_sent,tz_sent,dt_recv,dt_saved,size,mail_subj)
- values(:user_id,:uid,:guid,:mailbox,:dt_sent,:tz_sent,:dt_recv,:dt_saved,:size,:subj)"#
+            r#"insert into record (user_id,uid,guid,mailbox,dt_sent,tz_sent,dt_recv,dt_saved,size,mail_subj,outbound)
+ values(:user_id,:uid,:guid,:mailbox,:dt_sent,:tz_sent,:dt_recv,:dt_saved,:size,:subj,:outbound)"#
                 .with(params! {
             "user_id"=>user_id,
             "uid"=>read_buf.uid.as_str(),
@@ -367,7 +372,8 @@ async fn process_record(
             "dt_recv"=>read_buf.date_received.as_str(),
             "dt_saved"=>read_buf.date_saved.as_str(),
             "size"=>read_buf.size_physical,
-            "subj"=>read_buf.subj.as_str()})
+            "subj"=>read_buf.subj.as_str(),
+            "outbound"=>(received & RECV_RECEIVED) != RECV_RECEIVED })
                 .ignore(&mut wa.db_conn)
                 .await
                 .with_context(|| "failed to insert record".to_owned())?;

@@ -23,6 +23,7 @@ CREATE TABLE `record` (
     `dt_saved` DATETIME NOT NULL,
     `size` bigint unsigned NOT NULL,
     `mail_subj` TEXT NOT NULL,
+    `outbound` BOOL NOT NULL,
     UNIQUE (user_id,uid,mailbox),
     UNIQUE (guid),
     PRIMARY KEY (`id`),
