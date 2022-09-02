@@ -1,3 +1,4 @@
+use log::warn;
 // use log::{debug, trace};
 // use mod_logger::{Level, Logger};
 use regex::bytes::Regex;
@@ -173,6 +174,8 @@ impl EmailParser {
             if self.email_regex.is_match(email.as_ref()) {
                 res_final.push((email, name, true))
             } else {
+                warn!("parse: invalid email: {}", email);
+                warn!("parse: parsed from: {}", emails);
                 res_final.push((email, name, false))
             }
         }
