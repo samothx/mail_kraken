@@ -309,6 +309,40 @@ mod tests {
     }
 
     #[test]
+    fn parse_email_simple_email_list3() {
+        const EMAILS: &str = r#"Ralf Dreyer <ralf-dreyer@web.de>, Olaf Völker
+    <olaf@voelker-wl.de>, "\"Firmian\" Steinfath Mathias" <firmian@cenci.de>,
+    Sascha Geering <sashgeer@aol.com>"#;
+
+        let parser = EmailParser::new();
+        assert_eq!(
+            parser.parse(EMAILS),
+            vec![
+                (
+                    "ralf-dreyer@web.de".to_owned(),
+                    Some("Ralf Dreyer".to_owned()),
+                    true
+                ),
+                (
+                    "olaf@voelker-wl.de".to_owned(),
+                    Some("Olaf Völker".to_owned()),
+                    true
+                ),
+                (
+                    "firmian@cenci.de".to_owned(),
+                    Some("\"Firmian\" Steinfath Mathias".to_owned()),
+                    true
+                ),
+                (
+                    "sashgeer@aol.com".to_owned(),
+                    Some("Sascha Geering".to_owned()),
+                    true
+                ),
+            ]
+        );
+    }
+
+    #[test]
     fn parse_email_complex_email_list1() {
         const EMAILS: &str = r#""\"Firmian\" Steinfath Mathias" <firmian@cenci.de>,
     "Andreas + Angela Horn" <aahorn@gmx.de>,

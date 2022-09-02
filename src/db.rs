@@ -9,9 +9,6 @@ use tokio::task::JoinHandle;
 mod email_parser;
 use email_parser::EmailParser;
 
-// mod email_parser;
-// use email_parser::EmailParser;
-
 const DB_VERSION: u32 = 1;
 const DO_INSERT: bool = true;
 
