@@ -9,6 +9,9 @@ use tokio::task::JoinHandle;
 mod email_parser;
 use email_parser::EmailParser;
 
+// mod email_parser;
+// use email_parser::EmailParser;
+
 const DB_VERSION: u32 = 1;
 const DO_INSERT: bool = true;
 
@@ -283,27 +286,19 @@ async fn process_record(
                     received |= RECV_RECEIVED;
                 }
                 HDR_NAME_TO => {
-                    read_buf.to = email_parser
-                        .parse(value.as_str())
-                        .with_context(|| format!("failed to parse \"To\" header from {}", value))?;
+                    read_buf.to = email_parser.parse(value.as_str());
                     received |= RECV_TO;
                 }
                 HDR_NAME_FROM => {
-                    read_buf.from = email_parser.parse(value.as_str()).with_context(|| {
-                        format!("failed to parse \"From\" header from {}", value)
-                    })?;
+                    read_buf.from = email_parser.parse(value.as_str());
                     received |= RECV_FROM;
                 }
                 HDR_NAME_CC => {
-                    read_buf.cc = email_parser
-                        .parse(value.as_str())
-                        .with_context(|| format!("failed to parse \"CC\" header from {}", value))?;
+                    read_buf.cc = email_parser.parse(value.as_str());
                     received |= RECV_CC;
                 }
                 HDR_NAME_BCC => {
-                    read_buf.bcc = email_parser
-                        .parse(value.as_str())
-                        .with_context(|| format!("failed to parse \"CC\" header from {}", value))?;
+                    read_buf.bcc = email_parser.parse(value.as_str());
                     received |= RECV_BCC;
                 }
                 HDR_NAME_SUBJ => {
