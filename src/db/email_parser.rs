@@ -1,12 +1,13 @@
 use log::warn;
-// use log::{debug, trace};
-// use mod_logger::{Level, Logger};
 use regex::bytes::Regex;
 
 const EMAIL_REGEX: &str = r#"([-!#-'*+/-9=?A-Z^-~]+(\.[-!#-'*+/-9=?A-Z^-~]+)*|"([]!#-[^-~ \t]|(\\[\t -~]))+")@([-!#-'*+/-9=?A-Z^-~]+(\.[-!#-'*+/-9=?A-Z^-~]+)*|\[[\t -Z^-~]*])"#;
 
 pub struct EmailParser {
     email_regex: Regex,
+    collect: String,
+    email: String,
+    name: String,
 }
 
 impl EmailParser {
@@ -14,16 +15,17 @@ impl EmailParser {
         Self {
             email_regex: Regex::new(EMAIL_REGEX)
                 .expect(format!("failed to create regex from [{}]", EMAIL_REGEX).as_str()),
+            collect: String::with_capacity(256),
+            email: String::with_capacity(256),
+            name: String::with_capacity(256),
         }
     }
 
-    pub fn parse(&self, emails: &str) -> Vec<(String, Option<String>, bool)> {
+    pub fn parse(&mut self, emails: &str) -> Vec<(String, Option<String>, bool)> {
         // Logger::set_default_level(Level::Debug);
         let mut res = Vec::new();
         let mut state = State::Init;
-        let mut collect = String::with_capacity(256);
-        let mut email = String::with_capacity(256);
-        let mut name = String::with_capacity(256);
+
         for ch in emails.chars() {
             /*            debug!(
                 "parse: collect:[{}], name:[{}], email:[{}], state:{:?}",
@@ -34,10 +36,10 @@ impl EmailParser {
                     '<' => {
                         state = State::EmailBracket;
                         // trace!("parse:   -> {:?} on {}", state, ch);
-                        let trimed = collect.trim();
+                        let trimed = self.collect.trim();
                         if !trimed.is_empty() {
-                            name.push_str(trimed);
-                            collect.clear();
+                            self.name.push_str(trimed);
+                            self.collect.clear();
                         }
                     }
                     '"' => {
@@ -47,67 +49,74 @@ impl EmailParser {
                     '@' => {
                         state = State::Email;
                         // trace!("parse:   -> {:?} on {}", state, ch);
-                        email.push_str(collect.trim_start());
-                        email.push(ch);
-                        collect.clear();
+                        self.email.push_str(self.collect.trim_start());
+                        self.email.push(ch);
+                        self.collect.clear();
                     }
-                    _ => collect.push(ch),
+                    _ => self.collect.push(ch),
                 },
                 State::Name => match ch {
                     '<' => {
                         state = State::EmailBracket;
                         // trace!("parse:   -> {:?} on {}", state, ch);
                     }
-                    _ => name.push(ch),
+                    _ => self.name.push(ch),
                 },
                 State::EmailBracket => match ch {
                     '>' => {
                         state = State::AfterEmail;
                         // trace!("parse:   -> {:?} on {}", state, ch);
-                        let trimmed_name = name.trim();
-                        res.push((
-                            email.clone(),
-                            if trimmed_name.is_empty() {
-                                None
-                            } else {
-                                Some(trimmed_name.to_owned())
-                            },
-                        ));
-                        email.clear();
-                        name.clear();
+                        let trimmed_email = self.email.trim();
+                        if trimmed_email.is_empty() {
+                            warn!("parse: empty email brackets found in [{}]", emails);
+                        } else {
+                            let trimmed_name = self.name.trim();
+                            res.push((
+                                trimmed_email.to_owned(),
+                                if trimmed_name.is_empty() {
+                                    None
+                                } else {
+                                    Some(trimmed_name.to_owned())
+                                },
+                            ));
+                        }
+                        self.email.clear();
+                        self.name.clear();
                     }
-                    _ => email.push(ch),
+                    _ => self.email.push(ch),
                 },
                 State::Email => match ch {
                     ',' => {
                         state = State::Init;
                         // trace!("parse:   -> {:?} on {}", state, ch);
                         res.push((
-                            email.clone(),
-                            if name.is_empty() {
+                            self.email.trim().to_owned(),
+                            if self.name.is_empty() {
                                 None
                             } else {
-                                Some(name.clone())
+                                Some(self.name.trim().to_owned())
                             },
                         ));
-                        email.clear();
-                        name.clear();
+                        self.email.clear();
+                        self.name.clear();
                     }
                     ' ' => {
                         state = State::AfterEmail;
                         // trace!("parse:   -> {:?} on {}", state, ch);
+                        let trimmed_email = self.email.trim();
+                        let trimmed_name = self.name.trim();
                         res.push((
-                            email.clone(),
-                            if name.is_empty() {
+                            trimmed_email.to_owned(),
+                            if trimmed_name.is_empty() {
                                 None
                             } else {
-                                Some(name.clone())
+                                Some(trimmed_name.to_owned())
                             },
                         ));
-                        email.clear();
-                        name.clear();
+                        self.email.clear();
+                        self.name.clear();
                     }
-                    _ => email.push(ch),
+                    _ => self.email.push(ch),
                 },
                 State::NameQuoted => match ch {
                     '\\' => {
@@ -118,13 +127,17 @@ impl EmailParser {
                         state = State::Name;
                         // trace!("parse:   -> {:?} on {}", state, ch);
                     }
-                    _ => name.push(ch),
+                    _ => self.name.push(ch),
                 },
                 State::EscapeName => {
                     if ch == '"' {
                         state = State::NameDoubleQuoted;
                         // trace!("parse:   -> {:?} on {}", state, ch);
-                        name.push(ch);
+                        self.name.push(ch);
+                    } else {
+                        state = State::NameQuoted;
+                        // trace!("parse:   -> {:?} on {}", state, ch);
+                        self.name.push(ch);
                     }
                 }
                 State::AfterEmail => match ch {
@@ -137,12 +150,11 @@ impl EmailParser {
                 State::EscapeDoubleQuoted => {
                     if ch == '"' {
                         state = State::NameQuoted;
-                        // trace!("parse:   -> {:?} on {}", state, ch);
-                        name.push(ch);
                     } else {
-                        name.push('\\');
-                        name.push(ch);
+                        state = State::NameDoubleQuoted;
                     }
+                    // trace!("parse:   -> {:?} on {}", state, ch);
+                    self.name.push(ch);
                 }
                 State::NameDoubleQuoted => match ch {
                     '\\' => {
@@ -150,22 +162,23 @@ impl EmailParser {
                         // trace!("parse:   -> {:?} on {}", state, ch);
                     }
                     _ => {
-                        name.push(ch);
+                        self.name.push(ch);
                     }
                 },
             }
         }
+
         if state == State::Email {
             res.push((
-                email.clone(),
-                if name.is_empty() {
+                self.email.clone(),
+                if self.name.is_empty() {
                     None
                 } else {
-                    Some(name.clone())
+                    Some(self.name.clone())
                 },
             ));
-            name.clear();
-            email.clear();
+            self.name.clear();
+            self.email.clear();
         }
         // debug!("parse: state: {:?} res: {:?}", state, res);
 
@@ -201,7 +214,7 @@ mod tests {
 
     #[test]
     fn parse_email_simple_email1() {
-        let parser = EmailParser::new();
+        let mut parser = EmailParser::new();
         assert_eq!(
             parser.parse("info@etnur.net"),
             vec![("info@etnur.net".to_owned(), None, true)]
@@ -210,7 +223,7 @@ mod tests {
 
     #[test]
     fn parse_email_simple_email2() {
-        let parser = EmailParser::new();
+        let mut parser = EmailParser::new();
         assert_eq!(
             parser.parse("name@domain.tld,"),
             vec![("name@domain.tld".to_owned(), None, true)]
@@ -219,7 +232,7 @@ mod tests {
 
     #[test]
     fn parse_email_simple_email3() {
-        let parser = EmailParser::new();
+        let mut parser = EmailParser::new();
         assert_eq!(
             parser.parse("name@domain.tld,\n"),
             vec![("name@domain.tld".to_owned(), None, true)]
@@ -228,7 +241,7 @@ mod tests {
 
     #[test]
     fn parse_email_simple_email4() {
-        let parser = EmailParser::new();
+        let mut parser = EmailParser::new();
         assert_eq!(
             parser.parse("<name@domain.tld>,\n"),
             vec![("name@domain.tld".to_owned(), None, true)]
@@ -236,8 +249,40 @@ mod tests {
     }
 
     #[test]
+    fn parse_email_simple_email5() {
+        let mut parser = EmailParser::new();
+        assert_eq!(
+            parser.parse(r#""James Wei \(via Dropbox\)" <no-reply@dropbox.com>"#),
+            vec![(
+                "no-reply@dropbox.com".to_owned(),
+                Some(r#"James Wei (via Dropbox)"#.to_owned()),
+                true
+            )]
+        );
+    }
+
+    #[test]
+    fn parse_email_simple_email6() {
+        let mut parser = EmailParser::new();
+        assert_eq!(
+            parser.parse(r#""Bob at /\\/\\etBob" <bob@metbob.com>"#),
+            vec![(
+                "bob@metbob.com".to_owned(),
+                Some(r#"Bob at /\/\etBob"#.to_owned()),
+                true
+            )]
+        );
+    }
+
+    #[test]
+    fn parse_email_simple_email7() {
+        let mut parser = EmailParser::new();
+        assert_eq!(parser.parse(r#"Root User <>"#), vec![]);
+    }
+
+    #[test]
     fn parse_email_simple_email_with_name1() {
-        let parser = EmailParser::new();
+        let mut parser = EmailParser::new();
         assert_eq!(
             parser.parse(r#"kurt mustermann <name@domain.tld>"#),
             vec![(
@@ -250,7 +295,7 @@ mod tests {
 
     #[test]
     fn parse_email_simple_email_with_name2() {
-        let parser = EmailParser::new();
+        let mut parser = EmailParser::new();
         assert_eq!(
             parser.parse(r#""Kauffmann, Ole" <Ole.Kauffmann@ipdynamics.de>"#),
             vec![(
@@ -263,7 +308,7 @@ mod tests {
 
     #[test]
     fn parse_email_simple_email_with_name3() {
-        let parser = EmailParser::new();
+        let mut parser = EmailParser::new();
         assert_eq!(
             parser.parse(r#""\"Firmian\" Steinfath Mathias" <firmian@cenci.de>"#),
             vec![(
@@ -276,7 +321,7 @@ mod tests {
 
     #[test]
     fn parse_email_simple_email_with_name4() {
-        let parser = EmailParser::new();
+        let mut parser = EmailParser::new();
         assert_eq!(
             parser.parse(r#"Stölken, Christian <christian@domain.de>"#),
             vec![(
@@ -289,7 +334,7 @@ mod tests {
 
     #[test]
     fn parse_email_simple_email_list1() {
-        let parser = EmailParser::new();
+        let mut parser = EmailParser::new();
         assert_eq!(
             parser.parse("name1@domain1.tld1, name2@domain2.tld2"),
             vec![
@@ -301,7 +346,7 @@ mod tests {
 
     #[test]
     fn parse_email_simple_email_list2() {
-        let parser = EmailParser::new();
+        let mut parser = EmailParser::new();
         assert_eq!(
             parser.parse("name1@domain1.tld1,\n name2@domain2.tld2,\n "),
             vec![
@@ -317,7 +362,7 @@ mod tests {
     <olaf@voelker-wl.de>, "\"Firmian\" Steinfath Mathias" <firmian@cenci.de>,
     Sascha Geering <sashgeer@aol.com>"#;
 
-        let parser = EmailParser::new();
+        let mut parser = EmailParser::new();
         assert_eq!(
             parser.parse(EMAILS),
             vec![
@@ -385,7 +430,7 @@ mod tests {
     "Wilhus Heidi" <heidiwilhus@t-online.de>,
     "Yvonne und Tom Kanthak" <blacksilver1@t-online.de>"#;
 
-        let parser = EmailParser::new();
+        let mut parser = EmailParser::new();
         let res_list = parser.parse(EMAILS);
         res_list.iter().for_each(|(email, name, valid)| {
             if !valid {
