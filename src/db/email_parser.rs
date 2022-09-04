@@ -299,7 +299,7 @@ mod tests {
         assert_eq!(
             parser.parse(r#""Kauffmann, Ole" <Ole.Kauffmann@ipdynamics.de>"#),
             vec![(
-                "Ole.Kauffmann@ipdynamics.de".to_owned(),
+                "ole.kauffmann@ipdynamics.de".to_owned(),
                 Some("Kauffmann, Ole".to_owned()),
                 true
             )]
