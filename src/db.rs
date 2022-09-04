@@ -103,6 +103,7 @@ pub async fn init_db(pool: Pool) -> Result<()> {
 
 pub async fn init_user(pool: Pool, user: &str) -> Result<Option<JoinHandle<Result<()>>>> {
     debug!("init_user: called for {}", user);
+
     let mut db_conn = pool.get_conn().await?;
     let user_id: Option<u64> = r"select id from user where user=:user"
         .with(params! {"user"=>user})
@@ -133,8 +134,9 @@ pub async fn init_user(pool: Pool, user: &str) -> Result<Option<JoinHandle<Resul
 
     if count == 0 {
         // start a background job fill database for user
-        let user = user.to_owned();
+        let user_cpy = user.to_owned();
         Ok(Some(tokio::spawn(async move {
+            let user = user_cpy;
             scan(db_conn, user, user_id).await
         })))
     } else {
@@ -149,7 +151,7 @@ pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
     let mut email_parser = EmailParser::new();
     let mut email_db = EmailDb::new();
 
-    let fetch_params = FetchParams::new(user)
+    let fetch_params = FetchParams::new(user.to_owned())
         .add_field(ImapField::Flags)
         .add_field(ImapField::Guid)
         .add_field(ImapField::Uid)
@@ -366,6 +368,7 @@ async fn process_record(
                     email_db
                         .add_email(
                             db_conn,
+                            user_id,
                             email.as_str(),
                             name.as_ref().map(|val| val.as_str()),
                             if outbound {
@@ -443,6 +446,7 @@ async fn process_record(
                         let email_id = email_db
                             .add_email(
                                 db_conn,
+                                user_id,
                                 email.as_str(),
                                 name.as_ref().map(|val| val.as_str()),
                                 EmailType::Other,
@@ -465,6 +469,7 @@ async fn process_record(
                         let email_id = email_db
                             .add_email(
                                 db_conn,
+                                user_id,
                                 email.as_str(),
                                 name.as_ref().map(|val| val.as_str()),
                                 EmailType::Other,
@@ -487,6 +492,7 @@ async fn process_record(
                         let email_id = email_db
                             .add_email(
                                 db_conn,
+                                user_id,
                                 email.as_str(),
                                 name.as_ref().map(|val| val.as_str()),
                                 EmailType::Other,

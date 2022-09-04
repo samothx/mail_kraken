@@ -1,26 +1,24 @@
 use crate::db::DbConCntr;
 use anyhow::{anyhow, Context, Result};
-use log::warn;
-use mysql_async::prelude::{BatchQuery, Query, WithParams};
-use mysql_async::{params, ServerError};
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use mysql_async::params;
+use mysql_async::prelude::{Query, WithParams};
+use std::collections::{BTreeMap, HashSet};
 
 pub struct EmailDb {
     email: BTreeMap<String, EmailInfo>,
-    name: BTreeSet<(String, u64)>,
 }
 
 impl EmailDb {
     pub fn new() -> Self {
         Self {
             email: BTreeMap::new(),
-            name: BTreeSet::new(),
         }
     }
 
     pub async fn add_email(
         &mut self,
         db_conn: &mut DbConCntr,
+        user_id: u64,
         email: &str,
         name: Option<&str>,
         email_type: EmailType,
@@ -28,9 +26,27 @@ impl EmailDb {
         let email_id = if let Some(info) = self.email.get_mut(email) {
             // work with cached value
             email_type.process(info);
+
+            r#"update mail_stats set referenced=:referenced,inbound=:inbound,outbound=:outbound,seen=:seen,spam=:spam) where email=:email_id and user_id=:user_id"#
+                .with(params! {
+                    "email_id"=>info.id,
+                    "user_id"=>user_id,
+                    "referenced"=> info.referenced,
+                    "inbound"=>info.inbound,
+                    "outbound"=>info.outbound,
+                    "seen"=> info.seen,
+                    "spam"=>info.spam }).ignore(&mut db_conn.db_conn).await?;
+
             // update to db ?
             if let Some(name) = name {
-                let _ = info.names.insert(name.to_owned());
+                if info.names.insert(name.to_owned()) {
+                    r#"insert into mail_name (email_id,name) values(:email_id,:name)"#
+                        .with(params! {
+                            "email_id"=>info.id,"name"=>name
+                        })
+                        .ignore(&mut db_conn.db_conn)
+                        .await?;
+                }
             }
             info.id
         } else {
@@ -63,7 +79,7 @@ impl EmailDb {
                     anyhow!("add_email: failed to retrieve last insert id for email")
                 })?
             };
-            let mut email_info = EmailInfo {
+            let mut info = EmailInfo {
                 id: email_id,
                 referenced: 0,
                 inbound: 0,
@@ -73,12 +89,29 @@ impl EmailDb {
                 names: HashSet::new(),
             };
 
-            email_type.process(&mut email_info);
+            email_type.process(&mut info);
+
+            r#"insert into mail_stats (email_id,user_id,referenced,inbound,outbound,seen,spam) values(:email_id,:user_id,:referenced,:inbound,:outbound,:seen,:spam)"#
+                .with(params! {
+                    "email_id"=>email_id,
+                    "user_id"=>user_id,
+                    "referenced"=> info.referenced,
+                    "inbound"=>info.inbound,
+                    "outbound"=>info.outbound,
+                    "seen"=> info.seen,
+                    "spam"=>info.spam }).ignore(&mut db_conn.db_conn).await?;
 
             if let Some(name) = name {
-                let _ = email_info.names.insert(name.to_owned());
+                if info.names.insert(name.to_owned()) {
+                    r#"insert into mail_name (email_id,name) values(:email_id,:name)"#
+                        .with(params! {
+                            "email_id"=>email_id,"name"=>name
+                        })
+                        .ignore(&mut db_conn.db_conn)
+                        .await?;
+                }
             }
-            if let Some(_) = self.email.insert(email.to_owned(), email_info) {
+            if let Some(_) = self.email.insert(email.to_owned(), info) {
                 panic!("add_email: unexpected existing value in table");
             }
             email_id
@@ -87,34 +120,38 @@ impl EmailDb {
         Ok(email_id)
     }
 
-    pub async fn flush_to_db(&self, db_conn: &mut DbConCntr, user_id: u64) -> Result<()> {
-        r#"insert into mail_stats (email_id,user_id,inbound,outbound,seen,spam) values(:email_id,:user_id,:inbound,:outbound,:seen,:spam)"#
-            .with(self.email.iter().map(|(_, info)|
-            params! {
-                "email_id"=>info.id,
-                "user_id"=>user_id,
-                "inbound"=>info.inbound,
-                "outbound"=>info.outbound,
-                "seen"=>info.seen,
-                "spam"=>info.spam
-            })).batch(&mut db_conn.db_conn).await?;
+    /*
+       pub async fn flush_to_db(mut self, db_conn: &mut DbConCntr, user_id: u64) -> Result<()> {
+           r#"insert into mail_stats (email_id,user_id,inbound,outbound,seen,spam) values(:email_id,:user_id,:inbound,:outbound,:seen,:spam)"#
+               .with(self.email.iter().map(|(_, info)|
+               params! {
+                   "email_id"=>info.id,
+                   "user_id"=>user_id,
+                   "inbound"=>info.inbound,
+                   "outbound"=>info.outbound,
+                   "seen"=>info.seen,
+                   "spam"=>info.spam
+               })).batch(&mut db_conn.db_conn).await?;
+           self.email.clear();
 
-        r#"insert into mail_name (email_id,name) values(:email_id,:name)"#
-            .with(
-                self.email
-                    .iter()
-                    .flat_map(|(_, info)| info.names.iter().map(|name| (info.id, name)))
-                    .map(|(email_id, name)| {
-                        params! {
-                            "email_id"=>email_id
-                            ,"name"=>name.as_str()
-                        }
-                    }),
-            )
-            .batch(&mut db_conn.db_conn)
-            .await?;
-        Ok(())
-    }
+           r#"insert into mail_name (email_id,name) values(:email_id,:name)"#
+               .with(
+                   self.email
+                       .iter()
+                       .flat_map(|(_, info)| info.names.iter().map(|name| (info.id, name)))
+                       .map(|(email_id, name)| {
+                           params! {
+                               "email_id"=>email_id
+                               ,"name"=>name.as_str()
+                           }
+                       }),
+               )
+               .batch(&mut db_conn.db_conn)
+               .await?;
+           self.name.clear();
+           Ok(())
+       }
+    */
 }
 
 pub enum EmailType {
