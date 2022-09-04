@@ -27,7 +27,7 @@ impl EmailDb {
             // work with cached value
             email_type.process(info);
 
-            r#"update mail_stats set referenced=:referenced,inbound=:inbound,outbound=:outbound,seen=:seen,spam=:spam) where email_id=:email_id and user_id=:user_id"#
+            r#"update mail_stats set referenced=:referenced,inbound=:inbound,outbound=:outbound,seen=:seen,spam=:spam where email_id=:email_id and user_id=:user_id"#
                 .with(params! {
                     "email_id"=>info.id,
                     "user_id"=>user_id,
