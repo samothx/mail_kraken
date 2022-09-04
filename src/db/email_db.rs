@@ -27,7 +27,7 @@ impl EmailDb {
             // work with cached value
             email_type.process(info);
 
-            r#"update mail_stats set referenced=:referenced,inbound=:inbound,outbound=:outbound,receiver=:receiver,seen=:seen,spam=:spam where email_id=:email_id and user_id=:user_id"#
+            r#"update mail_stats set referenced=:referenced,inbound=:inbound,outbound=:outbound,receiver=:receiver,aux_receiver=:aux_receiver,seen=:seen,spam=:spam where email_id=:email_id and user_id=:user_id"#
                 .with(params! {
                     "email_id"=>info.id,
                     "user_id"=>user_id,
@@ -35,6 +35,7 @@ impl EmailDb {
                     "inbound"=>info.inbound,
                     "outbound"=>info.outbound,
                     "receiver"=>info.receiver,
+                    "aux_receiver"=>info.aux_receiver,
                     "seen"=> info.seen,
                     "spam"=>info.spam }).ignore(&mut db_conn.db_conn).await?;
 
@@ -86,6 +87,7 @@ impl EmailDb {
                 inbound: 0,
                 outbound: false,
                 receiver: 0,
+                aux_receiver: 0,
                 seen: 0,
                 spam: 0,
                 names: HashSet::new(),
@@ -93,7 +95,7 @@ impl EmailDb {
 
             email_type.process(&mut info);
 
-            r#"insert into mail_stats (email_id,user_id,referenced,inbound,outbound,receiver,seen,spam) values(:email_id,:user_id,:referenced,:inbound,:outbound,:receiver,:seen,:spam)"#
+            r#"insert into mail_stats (email_id,user_id,referenced,inbound,outbound,receiver,aux_receiver,seen,spam) values(:email_id,:user_id,:referenced,:inbound,:outbound,:receiver,:aux_receiver,:seen,:spam)"#
                 .with(params! {
                     "email_id"=>email_id,
                     "user_id"=>user_id,
@@ -101,6 +103,7 @@ impl EmailDb {
                     "inbound"=>info.inbound,
                     "outbound"=>info.outbound,
                     "receiver"=>info.receiver,
+                    "aux_receiver"=>info.aux_receiver,
                     "seen"=> info.seen,
                     "spam"=>info.spam }).ignore(&mut db_conn.db_conn).await?;
 
@@ -161,6 +164,7 @@ pub enum EmailType {
     InboundFrom((bool, bool)), // the sender of an inbound mail // todo answered
     OutboundFrom,              // the sender of an outbound mail
     OutboundReceipient,        // the receipient of an outbound mail fom me
+    OutboundAuxReceipient,     // the receipient of an outbound mail fom me via cc/bcc
     Other,                     // to, cc, bcc of in/outbound mail
 }
 
@@ -183,6 +187,9 @@ impl EmailType {
             EmailType::OutboundReceipient => {
                 info.receiver += 1;
             }
+            EmailType::OutboundAuxReceipient => {
+                info.aux_receiver += 1;
+            }
             _ => (),
         }
     }
@@ -194,6 +201,7 @@ pub struct EmailInfo {
     inbound: u32,
     outbound: bool,
     receiver: u32,
+    aux_receiver: u32,
     seen: u32,
     spam: u32,
     names: HashSet<String>,

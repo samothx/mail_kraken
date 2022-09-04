@@ -477,7 +477,7 @@ async fn process_record(
                                 email.as_str(),
                                 name.as_ref().map(|val| val.as_str()),
                                 if outbound {
-                                    EmailType::OutboundReceipient
+                                    EmailType::OutboundAuxReceipient
                                 } else {
                                     EmailType::Other
                                 },
@@ -504,7 +504,7 @@ async fn process_record(
                                 email.as_str(),
                                 name.as_ref().map(|val| val.as_str()),
                                 if outbound {
-                                    EmailType::OutboundReceipient
+                                    EmailType::OutboundAuxReceipient
                                 } else {
                                     EmailType::Other
                                 },
