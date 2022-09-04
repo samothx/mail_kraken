@@ -361,26 +361,30 @@ async fn process_record(
 
         let outbound = (received & RECV_RECEIVED) != RECV_RECEIVED;
         let email_from = if let Some((email, name, valid)) = read_buf.from.get(0) {
-            Some(
-                email_db
-                    .add_email(
-                        db_conn,
-                        email.as_str(),
-                        name.as_ref().map(|val| val.as_str()),
-                        if outbound {
-                            EmailType::OutboundFrom
-                        } else {
-                            EmailType::InboundFrom((
-                                read_buf
-                                    .flags
-                                    .iter()
-                                    .any(|name| name.as_str() == r#"\Seen"#),
-                                false,
-                            ))
-                        },
-                    )
-                    .await?,
-            )
+            if *valid {
+                Some(
+                    email_db
+                        .add_email(
+                            db_conn,
+                            email.as_str(),
+                            name.as_ref().map(|val| val.as_str()),
+                            if outbound {
+                                EmailType::OutboundFrom
+                            } else {
+                                EmailType::InboundFrom((
+                                    read_buf
+                                        .flags
+                                        .iter()
+                                        .any(|name| name.as_str() == r#"\Seen"#),
+                                    false,
+                                ))
+                            },
+                        )
+                        .await?,
+                )
+            } else {
+                None
+            }
         } else {
             None
         };

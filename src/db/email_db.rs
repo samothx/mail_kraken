@@ -1,5 +1,5 @@
 use crate::db::DbConCntr;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use log::warn;
 use mysql_async::prelude::{BatchQuery, Query, WithParams};
 use mysql_async::{params, ServerError};
@@ -42,22 +42,21 @@ impl EmailDb {
                 .ignore(&mut db_conn.db_conn)
                 .await
             {
-                warn!("add_email: failed to insert {:?}", e);
-                /* if let mysql_async::Error::ServerError(e) = e {
-                    if e.code ==
-                }*/
-                // else select from existing
-                if let Some(res) = r#"select id from email where email=:email"#
-                    .with(params! {"email" => email})
-                    .first(&mut db_conn.db_conn)
-                    .await?
-                {
-                    res
-                } else {
-                    return Err(anyhow!(
+                if is_db_dup_key(&e) {
+                    if let Some(res) = r#"select id from email where email=:email"#
+                        .with(params! {"email" => email})
+                        .first(&mut db_conn.db_conn)
+                        .await?
+                    {
+                        res
+                    } else {
+                        return Err(anyhow!(
                         "add_email: failed to select id for email: {}",
                         email
                     ));
+                    }
+                } else {
+                    return Err(e).with_context(|| format!("failed to insert email: {}", email));
                 }
             } else {
                 db_conn.db_conn.last_insert_id().ok_or_else(|| {
@@ -153,4 +152,11 @@ pub struct EmailInfo {
     seen: u32,
     spam: u32,
     names: HashSet<String>,
+}
+
+fn is_db_dup_key(err: &mysql_async::Error) -> bool {
+    if let mysql_async::Error::Server(err) = err {
+        return err.code == 1064;
+    }
+    false
 }

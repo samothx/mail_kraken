@@ -72,7 +72,7 @@ impl EmailParser {
                         } else {
                             let trimmed_name = self.name.trim();
                             res.push((
-                                trimmed_email.to_owned(),
+                                trimmed_email.to_lowercase().to_owned(),
                                 if trimmed_name.is_empty() {
                                     None
                                 } else {
@@ -90,7 +90,7 @@ impl EmailParser {
                         state = State::Init;
                         // trace!("parse:   -> {:?} on {}", state, ch);
                         res.push((
-                            self.email.trim().to_owned(),
+                            self.email.trim().to_lowercase().to_owned(),
                             if self.name.is_empty() {
                                 None
                             } else {
@@ -106,7 +106,7 @@ impl EmailParser {
                         let trimmed_email = self.email.trim();
                         let trimmed_name = self.name.trim();
                         res.push((
-                            trimmed_email.to_owned(),
+                            trimmed_email.to_lowercase().to_owned(),
                             if trimmed_name.is_empty() {
                                 None
                             } else {
@@ -170,7 +170,7 @@ impl EmailParser {
 
         if state == State::Email {
             res.push((
-                self.email.clone(),
+                self.email.to_lowercase().clone(),
                 if self.name.is_empty() {
                     None
                 } else {
