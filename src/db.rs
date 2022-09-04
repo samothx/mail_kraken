@@ -449,7 +449,11 @@ async fn process_record(
                                 user_id,
                                 email.as_str(),
                                 name.as_ref().map(|val| val.as_str()),
-                                EmailType::Other,
+                                if outbound {
+                                    EmailType::OutboundReceipient
+                                } else {
+                                    EmailType::Other
+                                },
                             )
                             .await?;
 
@@ -472,7 +476,11 @@ async fn process_record(
                                 user_id,
                                 email.as_str(),
                                 name.as_ref().map(|val| val.as_str()),
-                                EmailType::Other,
+                                if outbound {
+                                    EmailType::OutboundReceipient
+                                } else {
+                                    EmailType::Other
+                                },
                             )
                             .await?;
 
@@ -495,7 +503,11 @@ async fn process_record(
                                 user_id,
                                 email.as_str(),
                                 name.as_ref().map(|val| val.as_str()),
-                                EmailType::Other,
+                                if outbound {
+                                    EmailType::OutboundReceipient
+                                } else {
+                                    EmailType::Other
+                                },
                             )
                             .await?;
 

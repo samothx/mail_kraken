@@ -114,7 +114,8 @@ CREATE TABLE `mail_stats` (
      `user_id` bigint unsigned NOT NULL,
      `referenced` int unsigned DEFAULT 0,
      `inbound` int unsigned DEFAULT 0,
-     `outbound` int unsigned DEFAULT 0,     # outbound
+     `outbound` bool DEFAULT 0,             # outbound sender
+     `receiver` int unsigned DEFAULT 0,     # receiver of outbound messages
      `seen` int unsigned DEFAULT 0,         # inbound seen
      `spam` int unsigned DEFAULT 0,         # inbound marked spam
      PRIMARY KEY (email_id, user_id),
