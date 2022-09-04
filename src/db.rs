@@ -7,7 +7,7 @@ use regex::Regex;
 use tokio::task::JoinHandle;
 
 mod email_parser;
-use crate::db::email_db::EmailDb;
+use crate::db::email_db::{EmailDb, EmailType};
 use email_parser::EmailParser;
 
 mod email_db;
@@ -208,6 +208,8 @@ pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
         }
     }
 
+    // email_db.flush_to_db(&mut db, user_id).await?;
+
     let duration = chrono::Local::now() - ts_start;
     let status = fetch_cmd
         .get_exit_status()
@@ -365,12 +367,17 @@ async fn process_record(
                         db_conn,
                         email.as_str(),
                         name.as_ref().map(|val| val.as_str()),
-                        outbound,
-                        read_buf
-                            .flags
-                            .iter()
-                            .any(|name| name.as_str() == r#"\Seen"#),
-                        false,
+                        if outbound {
+                            EmailType::OutboundFrom
+                        } else {
+                            EmailType::InboundFrom((
+                                read_buf
+                                    .flags
+                                    .iter()
+                                    .any(|name| name.as_str() == r#"\Seen"#),
+                                false,
+                            ))
+                        },
                     )
                     .await?,
             )
@@ -427,57 +434,72 @@ async fn process_record(
                         })).batch(&mut db_conn.db_conn).await.with_context(|| "process_record: failed to insert headers".to_owned())?;
             }
             if !read_buf.to.is_empty() {
-                r"insert into mail_to (record_id, name, email) values(:record_id,:name,:email)"
-                    .with(read_buf.to.iter().filter(|(_, _, valid)| *valid).map(
-                        |(email, name, _)| {
-                            params! {   "record_id"=> record_id,
-                            "name" => if let Some(name) = name { Some(name.clone()) } else { None },
-                            "email" => email.clone()}
-                        },
-                    ))
-                    .batch(&mut db_conn.db_conn)
-                    .await
-                    .with_context(|| "process_record: failed to insert mail_to".to_owned())?;
-            }
-            if !read_buf.from.is_empty() {
-                r"insert into mail_from (record_id, name, email) values(:record_id,:name,:email)"
-                    .with(read_buf.from.iter().filter(|(_, _, valid)| *valid).map(
-                        |(email, name, _)| {
-                            params! {   "record_id"=> record_id,
-                            "name" => if let Some(name) = name { Some(name.clone()) } else { None },
-                            "email" => email.clone()}
-                        },
-                    ))
-                    .batch(&mut db_conn.db_conn)
-                    .await
-                    .with_context(|| "process_record: failed to insert mail_from".to_owned())?;
+                for (email, name, valid) in read_buf.to.iter() {
+                    if *valid {
+                        let email_id = email_db
+                            .add_email(
+                                db_conn,
+                                email.as_str(),
+                                name.as_ref().map(|val| val.as_str()),
+                                EmailType::Other,
+                            )
+                            .await?;
+
+                        r"insert into mail_to (record_id, email_id) values(:record_id,:email_id)"
+                            .with(params! {   "record_id"=> record_id, "email_id"=> email_id })
+                            .ignore(&mut db_conn.db_conn)
+                            .await
+                            .with_context(|| {
+                                "process_record: failed to insert mail_to".to_owned()
+                            })?;
+                    }
+                }
             }
             if !read_buf.cc.is_empty() {
-                r"insert into mail_cc (record_id, name, email) values(:record_id,:name,:email)"
-                    .with(read_buf.cc.iter().filter(|(_, _, valid)| *valid).map(
-                        |(email, name, _)| {
-                            params! {   "record_id"=> record_id,
-                            "name" => if let Some(name) = name { Some(name.clone()) } else { None },
-                            "email" => email.clone() }
-                        },
-                    ))
-                    .batch(&mut db_conn.db_conn)
-                    .await
-                    .with_context(|| "process_record: failed to insert mail_cc".to_owned())?;
+                for (email, name, valid) in read_buf.cc.iter() {
+                    if *valid {
+                        let email_id = email_db
+                            .add_email(
+                                db_conn,
+                                email.as_str(),
+                                name.as_ref().map(|val| val.as_str()),
+                                EmailType::Other,
+                            )
+                            .await?;
+
+                        r"insert into mail_cc (record_id, email_id) values(:record_id,:email_id)"
+                            .with(params! {   "record_id"=> record_id, "email_id"=> email_id })
+                            .ignore(&mut db_conn.db_conn)
+                            .await
+                            .with_context(|| {
+                                "process_record: failed to insert mail_cc".to_owned()
+                            })?;
+                    }
+                }
             }
             if !read_buf.bcc.is_empty() {
-                r"insert into mail_bcc (record_id, name, email) values(:record_id,:name,:email)"
-                    .with(read_buf.cc.iter().filter(|(_, _, valid)| *valid).map(
-                        |(email, name, _)| {
-                            params! {   "record_id"=> record_id,
-                            "name" => if let Some(name) = name { Some(name.clone()) } else { None },
-                            "email" => email.clone() }
-                        },
-                    ))
-                    .batch(&mut db_conn.db_conn)
-                    .await
-                    .with_context(|| "process_record: failed to insert mail_bcc".to_owned())?;
+                for (email, name, valid) in read_buf.bcc.iter() {
+                    if *valid {
+                        let email_id = email_db
+                            .add_email(
+                                db_conn,
+                                email.as_str(),
+                                name.as_ref().map(|val| val.as_str()),
+                                EmailType::Other,
+                            )
+                            .await?;
+
+                        r"insert into mail_bcc (record_id, email_id) values(:record_id,:email_id)"
+                            .with(params! {   "record_id"=> record_id, "email_id"=> email_id })
+                            .ignore(&mut db_conn.db_conn)
+                            .await
+                            .with_context(|| {
+                                "process_record: failed to insert mail_bcc".to_owned()
+                            })?;
+                    }
+                }
             }
+
             Ok(())
         } else {
             Err(anyhow!("process_record: failed to insert record"))

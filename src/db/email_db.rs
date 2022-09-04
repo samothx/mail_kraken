@@ -23,29 +23,15 @@ impl EmailDb {
         db_conn: &mut DbConCntr,
         email: &str,
         name: Option<&str>,
-        is_outbound: bool,
-        is_seen: bool,
-        is_spam: bool,
+        email_type: EmailType,
     ) -> Result<u64> {
         let email_id = if let Some(info) = self.email.get_mut(email) {
             // work with cached value
-            if is_outbound {
-                info.outbound += 1
-            } else {
-                info.inbound += 1
-            }
-            if is_seen {
-                info.seen += 1;
-            }
-            if is_spam {
-                info.spam += 1;
-            }
+            email_type.process(info);
             // update to db ?
-
             if let Some(name) = name {
                 let _ = info.names.insert(name.to_owned());
             }
-
             info.id
         } else {
             // try to insert
@@ -80,12 +66,16 @@ impl EmailDb {
             };
             let mut email_info = EmailInfo {
                 id: email_id,
-                inbound: if is_outbound { 0 } else { 1 },
-                outbound: if is_outbound { 1 } else { 0 },
-                seen: if is_seen { 1 } else { 0 },
-                spam: if is_spam { 1 } else { 0 },
+                referenced: 0,
+                inbound: 0,
+                outbound: 0,
+                seen: 0,
+                spam: 0,
                 names: HashSet::new(),
             };
+
+            email_type.process(&mut email_info);
+
             if let Some(name) = name {
                 let _ = email_info.names.insert(name.to_owned());
             }
@@ -128,8 +118,36 @@ impl EmailDb {
     }
 }
 
-struct EmailInfo {
+pub enum EmailType {
+    InboundFrom((bool, bool)), // the sender of an inbound mail
+    OutboundFrom,              // the sender of an outbound mail
+    Other,                     // to, cc, bcc of in/outbound mail
+}
+
+impl EmailType {
+    pub fn process(&self, info: &mut EmailInfo) {
+        info.referenced += 1;
+        match self {
+            EmailType::InboundFrom((seen, spam)) => {
+                info.inbound += 1;
+                if *seen {
+                    info.seen += 1
+                }
+                if *spam {
+                    info.spam += 1
+                }
+            }
+            EmailType::OutboundFrom => {
+                info.outbound += 1;
+            }
+            _ => (),
+        }
+    }
+}
+
+pub struct EmailInfo {
     id: u64,
+    referenced: u32,
     inbound: u32,
     outbound: u32,
     seen: u32,
