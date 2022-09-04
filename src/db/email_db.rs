@@ -156,7 +156,7 @@ pub struct EmailInfo {
 
 fn is_db_dup_key(err: &mysql_async::Error) -> bool {
     if let mysql_async::Error::Server(err) = err {
-        return err.code == 1064;
+        return err.code == 1062;
     }
     false
 }
