@@ -112,7 +112,7 @@ CREATE TABLE `imap_flag` (
 CREATE TABLE `mail_stats` (
      `email_id` bigint unsigned NOT NULL,
      `user_id` bigint unsigned NOT NULL,
-     `references` int unsigned DEFAULT 0,
+     `referenced` int unsigned DEFAULT 0,
      `inbound` int unsigned DEFAULT 0,
      `outbound` int unsigned DEFAULT 0,     # outbound
      `seen` int unsigned DEFAULT 0,         # inbound seen
