@@ -6,7 +6,7 @@ use nix::unistd::getuid;
 mod cmd_args;
 mod doveadm;
 mod httpd;
-pub use cmd_args::CmdArgs;
+pub use cmd_args::{CmdArgs, ImportArgs};
 mod config;
 mod db;
 mod libc_util;
@@ -19,6 +19,10 @@ use crate::libc_util::{strerror, UserInfo};
 use crate::util::switch_to_user;
 
 const BCRYPT_COST: u32 = 8;
+
+pub fn import(args: ImportArgs) -> Result<()> {
+    todo!()
+}
 
 pub async fn run(cmd_args: CmdArgs) -> Result<()> {
     // TODO: probably should not do this as su

@@ -5,6 +5,11 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+name  = "import"
+test = false
+bench = false
+
 [dependencies]
 
 log = "0.4"
@@ -19,6 +24,7 @@ rand = "0.8.5"
 bcrypt = "0.13.0"
 toml = "0.5"
 mysql_async = "0.30"
+mysql = "22.2.0"
 async-trait = "0.1.57"
 
 [dependencies.rfc2047-decoder]

@@ -42,3 +42,23 @@ pub struct ServeCmd {
     )]
     pub init_passwd: String,
 }
+
+#[derive(StructOpt)]
+#[structopt(name = "import", about = "import mailbox to mail_kraken database")]
+pub struct ImportArgs {
+    #[structopt(
+        short,
+        long,
+        value_name = "LOGLEVEL",
+        help = "Log Level, one of (error, warn, info, debug, trace)",
+        default_value = "info"
+    )]
+    pub log_level: Level,
+    #[structopt(
+        short,
+        long,
+        value_name = "USER",
+        help = "The email address/user to import"
+    )]
+    pub user: String,
+}
