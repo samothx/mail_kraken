@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use log::debug;
+use log::{debug, warn};
 use mysql::{params, prelude::Queryable, Conn};
 use std::collections::{BTreeMap, HashSet};
 
@@ -40,14 +40,22 @@ impl EmailDb {
             // update to db ?
             if let Some(name) = name {
                 if info.names.insert(name.to_owned()) {
-                    db_conn
-                        .exec_drop(
-                            ST_MN_INSERT,
-                            params! {
-                                "email_id"=>info.id,"name"=>name
-                            },
-                        )
-                        .with_context(|| "add_email: failed to insert mail_name".to_owned())?;
+                    if let Err(e) = db_conn.exec_drop(
+                        ST_MN_INSERT,
+                        params! {
+                            "email_id"=>info.id,"name"=>name
+                        },
+                    ) {
+                        if is_db_dup_key(&e) {
+                            warn!("add_email: duplicate key adding mail name {}", name);
+                        } else {
+                            return Err(e).with_context(|| {
+                                "add_email: failed to insert mail_name".to_owned()
+                            });
+                        }
+                    } else {
+                        debug!("add_email: inserted new mail_name: {}", name);
+                    }
                 }
             }
             info.id
@@ -115,11 +123,13 @@ impl EmailDb {
                         },
                     ) {
                         if is_db_dup_key(&e) {
-                            debug!("add_email: duplicate key adding mail name {}", name);
+                            warn!("add_email: duplicate key adding mail name {}", name);
                         } else {
                             return Err(e)
                                 .with_context(|| format!("failed to insert mail_name: {}", name));
                         }
+                    } else {
+                        debug!("add_email: inserted new mail_name: {}", name);
                     }
                 }
             }
