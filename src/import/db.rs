@@ -24,14 +24,14 @@ pub fn init_user(db_conn: &mut Conn, user: &str) -> Result<(UserId, bool)> {
             )?
             .expect("unexpected missing result from query");
 
-        (user_id, count > 0)
+        (user_id, count == 0)
     } else {
         db_conn.exec_drop(
             r#"insert into user (user) values(:user)"#,
             params! {"user"=>user},
         )?;
         let user_id = db_conn.last_insert_id();
-        (user_id, false)
+        (user_id, true)
     })
 }
 
