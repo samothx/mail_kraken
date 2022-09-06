@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use log::{debug, info};
+use log::{debug, error, info};
 use mysql::{params, prelude::Queryable, Conn};
 use std::collections::{BTreeMap, HashSet};
 
@@ -31,7 +31,7 @@ impl EmailDb {
         name: Option<&str>,
         email_type: EmailType,
     ) -> Result<u64> {
-        info!("add_email");
+        error!("add_email");
         let email_id = if let Some(info) = self.email.get_mut(email) {
             // work with cached value
             info.process(&email_type);
