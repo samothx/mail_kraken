@@ -216,7 +216,8 @@ pub fn process_record(
             "size"=>buffers.size_physical,
             "subj"=>buffers.subj.as_str(),
             "outbound"=>(received & RECV_RECEIVED) != RECV_RECEIVED,
-                "mail_from" => email_from}).with_context(|| "failed to insert record".to_owned())?;
+                "mail_from" => email_from}).with_context(|| "failed to insert record".to_owned())
+            .with_context(|| "failed to insert record".to_owned())?;
 
         let record_id = db_conn.last_insert_id();
 

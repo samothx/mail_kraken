@@ -37,12 +37,14 @@ impl EmailDb {
             // update to db ?
             if let Some(name) = name {
                 if info.names.insert(name.to_owned()) {
-                    db_conn.exec_drop(
-                        ST_MN_INSERT,
-                        params! {
-                            "email_id"=>info.id,"name"=>name
-                        },
-                    )?;
+                    db_conn
+                        .exec_drop(
+                            ST_MN_INSERT,
+                            params! {
+                                "email_id"=>info.id,"name"=>name
+                            },
+                        )
+                        .with_context(|| "add_email: failed to insert mail_name".to_owned())?;
                 }
             }
             info.id
@@ -52,8 +54,9 @@ impl EmailDb {
                 db_conn.exec_drop(ST_M_INSERT, params! {"email" => email})
             {
                 if is_db_dup_key(&e) {
-                    if let Some(email_id) =
-                        db_conn.exec_first(ST_M_SELECT, params! {"email" => email})?
+                    if let Some(email_id) = db_conn
+                        .exec_first(ST_M_SELECT, params! {"email" => email})
+                        .with_context(|| "add_email: failed to select email".to_owned())?
                     {
                         email_id
                     } else {
@@ -69,29 +72,33 @@ impl EmailDb {
             };
 
             let mut info = EmailInfo::new(email_id, &email_type);
-            db_conn.exec_drop(
-                ST_MS_INSERT,
-                params! {
-                    "email_id"=>info.id,
-                    "user_id"=>user_id,
-                    "referenced"=>info.referenced,
-                    "inbound"=>info.inbound,
-                    "outbound"=>info.outbound,
-                     "receiver"=>info.receiver,
-                     "aux_receiver"=>info.aux_receiver,
-                    "seen"=>info.seen,
-                    "spam"=>info.spam
-                },
-            )?;
+            db_conn
+                .exec_drop(
+                    ST_MS_INSERT,
+                    params! {
+                        "email_id"=>info.id,
+                        "user_id"=>user_id,
+                        "referenced"=>info.referenced,
+                        "inbound"=>info.inbound,
+                        "outbound"=>info.outbound,
+                         "receiver"=>info.receiver,
+                         "aux_receiver"=>info.aux_receiver,
+                        "seen"=>info.seen,
+                        "spam"=>info.spam
+                    },
+                )
+                .with_context(|| "add_email: failed to insert email_stats".to_owned())?;
 
             if let Some(name) = name {
                 if info.names.insert(name.to_owned()) {
-                    db_conn.exec_drop(
-                        ST_MN_INSERT,
-                        params! {
-                            "email_id"=>email_id,"name"=>name
-                        },
-                    )?;
+                    db_conn
+                        .exec_drop(
+                            ST_MN_INSERT,
+                            params! {
+                                "email_id"=>email_id,"name"=>name
+                            },
+                        )
+                        .with_context(|| "add_email: failed to insert mail_name".to_owned())?;
                 }
             }
             if let Some(_) = self.email.insert(email.to_owned(), info) {
@@ -104,25 +111,27 @@ impl EmailDb {
     }
 
     pub fn flush_to_db(mut self, db_conn: &mut Conn, user_id: u64) -> Result<()> {
-        db_conn.exec_batch(
-            ST_MS_UPDATE,
-            self.email
-                .iter_mut()
-                .filter(|(_, info)| info.updated)
-                .map(|(_, info)| {
-                    info.updated = false;
-                    params! {
-                            "email_id"=>info.id,
-                           "user_id"=>user_id,
-                           "inbound"=>info.inbound,
-                           "outbound"=>info.outbound,
-                            "receiver"=> info.receiver,
-                           "aux_receiver"=> info.aux_receiver,
-                           "seen"=>info.seen,
-                           "spam"=>info.spam
-                    }
-                }),
-        )?;
+        db_conn
+            .exec_batch(
+                ST_MS_UPDATE,
+                self.email
+                    .iter_mut()
+                    .filter(|(_, info)| info.updated)
+                    .map(|(_, info)| {
+                        info.updated = false;
+                        params! {
+                                "email_id"=>info.id,
+                               "user_id"=>user_id,
+                               "inbound"=>info.inbound,
+                               "outbound"=>info.outbound,
+                                "receiver"=> info.receiver,
+                               "aux_receiver"=> info.aux_receiver,
+                               "seen"=>info.seen,
+                               "spam"=>info.spam
+                        }
+                    }),
+            )
+            .with_context(|| "flush_to_db: failed to update email_stats".to_owned())?;
         Ok(())
     }
 }
