@@ -134,6 +134,7 @@ impl EmailDb {
                         params! {
                                 "email_id"=>info.id,
                                "user_id"=>user_id,
+                                "referenced"=>info.referenced,
                                "inbound"=>info.inbound,
                                "outbound"=>info.outbound,
                                 "receiver"=> info.receiver,
