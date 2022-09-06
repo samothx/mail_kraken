@@ -1,5 +1,5 @@
-use crate::db::init_user;
 use crate::doveadm::authenticate;
+use crate::httpd::db::init_user;
 use crate::httpd::error::{ApiError, ApiResult, SiteError, SiteResult};
 use crate::httpd::state_data::StateData;
 use crate::httpd::ADMIN_NAME;

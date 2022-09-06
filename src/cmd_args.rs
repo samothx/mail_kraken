@@ -3,9 +3,7 @@ use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "mail_kraken", about = "analyse - analyse mailbox")]
-pub struct CmdArgs {
-    #[structopt(subcommand)]
-    pub cmd: Command,
+pub struct ServeArgs {
     #[structopt(
         short,
         long,
@@ -14,17 +12,6 @@ pub struct CmdArgs {
         default_value = "info"
     )]
     pub log_level: Level,
-}
-
-#[derive(Debug, StructOpt)]
-pub enum Command {
-    Serve(ServeCmd),
-    // TODO: Install - install program, create user & group, copy templates & html-files,
-    // optionally create local database - or cargo make install
-}
-
-#[derive(Debug, StructOpt)]
-pub struct ServeCmd {
     #[structopt(
         short,
         long,

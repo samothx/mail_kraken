@@ -1,5 +1,5 @@
-use crate::db::init_db;
 use crate::httpd::admin::PasswdRes::ErrBadPasswd;
+use crate::httpd::db::init_db;
 use crate::httpd::error::{ApiError, ApiResult, SiteError, SiteResult};
 use crate::httpd::{StateData, ADMIN_NAME};
 use crate::BCRYPT_COST;

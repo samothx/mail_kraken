@@ -31,7 +31,7 @@ impl Parser for HdrParser {
         &self.first_line_re
     }
 
-    async fn parse_first_field(
+    fn parse_first_field(
         &self,
         reader: &mut StdoutLineReader,
         next_re: &Regex,
@@ -39,7 +39,6 @@ impl Parser for HdrParser {
         trace!("parse_first_field: called");
         if let Some(line) = reader
             .next_line()
-            .await
             .with_context(|| "next_line failed".to_owned())?
         {
             trace!("parse_first_field: got first line: [{:?}]", line);
@@ -47,12 +46,11 @@ impl Parser for HdrParser {
                 let mut res: Vec<(String, String)> = Vec::new();
                 while let Some(line) = reader
                     .next_line_rfc2047()
-                    .await
                     .with_context(|| "parse_first_field: next_line_rfc2047 failed".to_owned())?
                 {
                     trace!("parse_first_field: got next line: [{:?}]", line);
                     if line.is_empty() {
-                        match reader.next_line_rfc2047().await.with_context(|| {
+                        match reader.next_line_rfc2047().with_context(|| {
                             "parse_first_field: next_line_rfc2047 failed".to_owned()
                         })? {
                             Some(line) => {

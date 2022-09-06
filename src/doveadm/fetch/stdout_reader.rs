@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use log::trace;
-use tokio::io::AsyncReadExt;
-use tokio::process::ChildStdout;
+use std::io::Read;
+use std::process::ChildStdout;
 
 const BUFF_SIZE: usize = 1024 * 1024;
 const STR_BUFF_SIZE: usize = 1024 * 64; // 64K
@@ -38,7 +38,7 @@ impl StdoutLineReader {
         self.consumed = false;
     }
 
-    async fn next_line_raw(&mut self) -> Result<Option<&[u8]>> {
+    fn next_line_raw(&mut self) -> Result<Option<&[u8]>> {
         trace!("next_line_raw: called");
         if !self.consumed {
             trace!("next_line_raw: returning unconsumed buffer");
@@ -90,7 +90,7 @@ impl StdoutLineReader {
                     }
                 } else {
                     trace!("next_line_raw: filling buffer");
-                    self.end_pos = self.stream.read(&mut self.buffer[0..BUFF_SIZE]).await?;
+                    self.end_pos = self.stream.read(&mut self.buffer[0..BUFF_SIZE])?;
                     if self.end_pos == 0 {
                         self.finished = true;
                         trace!("next_line_raw: stream is finished");
@@ -111,7 +111,7 @@ impl StdoutLineReader {
         }
     }
 
-    pub(crate) async fn next_line_rfc2047(&mut self) -> Result<Option<&str>> {
+    pub(crate) fn next_line_rfc2047(&mut self) -> Result<Option<&str>> {
         trace!("next_line: called");
         self.str_buf = None;
         if !self.consumed {
@@ -122,7 +122,7 @@ impl StdoutLineReader {
                 self.rfc2047_buf = Some(rfc2047_decoder::decode(&self.line_buf[..])?);
                 Ok(self.rfc2047_buf.as_deref())
             }
-        } else if self.next_line_raw().await?.is_some() {
+        } else if self.next_line_raw()?.is_some() {
             self.rfc2047_buf = Some(rfc2047_decoder::decode(&self.line_buf[..])?);
             Ok(self.rfc2047_buf.as_deref())
         } else {
@@ -130,7 +130,7 @@ impl StdoutLineReader {
         }
     }
 
-    pub(crate) async fn next_line(&mut self) -> Result<Option<&str>> {
+    pub(crate) fn next_line(&mut self) -> Result<Option<&str>> {
         trace!("next_line: called");
         self.rfc2047_buf = None;
         if !self.consumed {
@@ -141,7 +141,7 @@ impl StdoutLineReader {
                 self.str_buf = Some((&*String::from_utf8_lossy(&self.line_buf[..])).to_owned());
                 Ok(self.str_buf.as_deref())
             }
-        } else if self.next_line_raw().await?.is_some() {
+        } else if self.next_line_raw()?.is_some() {
             self.str_buf = Some((&*String::from_utf8_lossy(&self.line_buf[..])).to_owned());
             Ok(self.str_buf.as_deref())
         } else {
@@ -149,15 +149,15 @@ impl StdoutLineReader {
         }
     }
 
-    pub(crate) async fn flush(&mut self) -> Result<()> {
+    pub(crate) fn flush(&mut self) -> Result<()> {
         self.finished = true;
-        while self.stream.read(&mut self.buffer[0..]).await? > 0 {}
+        while self.stream.read(&mut self.buffer[0..])? > 0 {}
         Ok(())
     }
 
     #[allow(dead_code)]
-    async fn expect_get_line(&mut self) -> Result<&str> {
-        if let Some(res) = self.next_line().await? {
+    fn expect_get_line(&mut self) -> Result<&str> {
+        if let Some(res) = self.next_line()? {
             Ok(res)
         } else {
             Err(anyhow!("encountered unexpected EOI"))

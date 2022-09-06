@@ -1,8 +1,6 @@
 use anyhow::{anyhow, Context, Result};
 use log::debug;
-use std::process::{ExitStatus, Stdio};
-
-use tokio::process::{Child, Command};
+use std::process::{Child, Command, ExitStatus, Stdio};
 
 use super::DOVEADM_CMD;
 use crate::switch_to_user;
@@ -25,10 +23,7 @@ pub struct Fetch {
     // params: FetchParams,
     child: Child,
     stdout: StdoutLineReader,
-    // stderr_task: JoinHandle<()>,
-    // line_count: usize,
-    // buffer: String,
-    parsers: Vec<Box<dyn Parser + Sync + Send>>,
+    parsers: Vec<Box<dyn Parser>>,
 }
 
 impl Fetch {
@@ -58,32 +53,22 @@ impl Fetch {
             }
         };
 
-        let mut parsers: Vec<Box<dyn Parser + Sync + Send>> = Vec::new();
+        let mut parsers: Vec<Box<dyn Parser>> = Vec::new();
         for field in params.fields() {
             parsers.push(match field {
-                ImapField::Flags => Box::new(FlagsParser::new()?) as Box<dyn Parser + Sync + Send>,
-                ImapField::Uid => Box::new(UidParser::new()?) as Box<dyn Parser + Sync + Send>,
-                ImapField::Guid => Box::new(GuidParser::new()?) as Box<dyn Parser + Sync + Send>,
-                ImapField::Mailbox => {
-                    Box::new(MailboxParser::new()?) as Box<dyn Parser + Sync + Send>
-                }
-                ImapField::DateSent => {
-                    Box::new(DateSentParser::new()?) as Box<dyn Parser + Sync + Send>
-                }
-                ImapField::DateReceived => {
-                    Box::new(DateReceivedParser::new()?) as Box<dyn Parser + Sync + Send>
-                }
-                ImapField::DateSaved => {
-                    Box::new(DateSavedParser::new()?) as Box<dyn Parser + Sync + Send>
-                }
-                ImapField::SizePhysical => {
-                    Box::new(SizePhysicalParser::new()?) as Box<dyn Parser + Sync + Send>
-                }
+                ImapField::Flags => Box::new(FlagsParser::new()?) as Box<dyn Parser>,
+                ImapField::Uid => Box::new(UidParser::new()?) as Box<dyn Parser>,
+                ImapField::Guid => Box::new(GuidParser::new()?) as Box<dyn Parser>,
+                ImapField::Mailbox => Box::new(MailboxParser::new()?) as Box<dyn Parser>,
+                ImapField::DateSent => Box::new(DateSentParser::new()?) as Box<dyn Parser>,
+                ImapField::DateReceived => Box::new(DateReceivedParser::new()?) as Box<dyn Parser>,
+                ImapField::DateSaved => Box::new(DateSavedParser::new()?) as Box<dyn Parser>,
+                ImapField::SizePhysical => Box::new(SizePhysicalParser::new()?) as Box<dyn Parser>,
 
                 /*ImapField::DateReceived | ImapField::DateSaved | ImapField::DateSent => {
                     Box::new(SingleLineParser::new(field, true)?) as Box<dyn Parser + Sync>
                 }*/
-                ImapField::Hdr => Box::new(HdrParser::new()?) as Box<dyn Parser + Sync + Send>,
+                ImapField::Hdr => Box::new(HdrParser::new()?) as Box<dyn Parser>,
                 _ => {
                     return Err(anyhow!(
                         "no parser found for field: [{}]",
@@ -101,21 +86,20 @@ impl Fetch {
         })
     }
 
-    pub async fn get_exit_status(&mut self) -> Result<ExitStatus> {
-        self.flush_stdout().await?;
+    pub fn get_exit_status(&mut self) -> Result<ExitStatus> {
+        self.flush_stdout()?;
         self.child
             .wait()
-            .await
             .with_context(|| "failed to wait for dveadm fetch to terminate".to_owned())
     }
 
-    pub async fn parse_record(&mut self) -> Result<Option<FetchRecord>> {
+    pub fn parse_record(&mut self) -> Result<Option<FetchRecord>> {
         debug!("parse_record: called");
-        FetchRecord::parse(&self.parsers, &mut self.stdout).await
+        FetchRecord::parse(&self.parsers, &mut self.stdout)
     }
 
-    async fn flush_stdout(&mut self) -> Result<()> {
-        self.stdout.flush().await?;
+    fn flush_stdout(&mut self) -> Result<()> {
+        self.stdout.flush()?;
         Ok(())
     }
 }

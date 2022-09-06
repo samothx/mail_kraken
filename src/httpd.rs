@@ -1,5 +1,5 @@
-use crate::{Config, ServeCmd};
-use anyhow::{Context, Result};
+use crate::{switch_to_user, Config, ServeArgs};
+use anyhow::{anyhow, Context, Result};
 use rand::Rng;
 
 use mysql_async::Pool;
@@ -9,13 +9,15 @@ use actix_identity::{CookieIdentityPolicy, IdentityService};
 
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 
-use actix_web::middleware::Logger;
 use log::{debug, error, info};
+use mod_logger::Logger;
+use nix::unistd::getuid;
 use std::net::SocketAddr;
 
 const ADMIN_NAME: &str = "admin";
 
 mod admin;
+mod db;
 mod error;
 mod login;
 mod state_data;
@@ -27,8 +29,27 @@ use crate::httpd::login::{admin_login_form, login_form, login_handler};
 use crate::httpd::user::user_dash;
 use state_data::{SharedData, StateData};
 
-pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
-    debug!("serve: entered");
+pub async fn serve(args: ServeArgs) -> Result<()> {
+    Logger::set_default_level(args.log_level);
+    Logger::set_color(true);
+    Logger::set_brief_info(true);
+
+    info!("initializing httpd server");
+
+    let config = match Config::from_file_async().await {
+        Ok(config) => Some(config),
+        Err(e) => {
+            error!("failed to read config file: {}", e);
+            None
+        }
+    };
+
+    if !getuid().is_root() {
+        return Err(anyhow!("please run this command as root"));
+    }
+
+    switch_to_user(false).with_context(|| "failed to switch user".to_owned())?;
+
     let config = if let Some(config) = config {
         config
     } else {
@@ -78,7 +99,7 @@ pub async fn serve(args: ServeCmd, config: Option<Config>) -> Result<()> {
         let data = shared_data.clone();
         App::new()
             .app_data(web::Data::new(data))
-            .wrap(Logger::default())
+            .wrap(actix_web::middleware::Logger::default())
             .wrap(IdentityService::new(
                 CookieIdentityPolicy::new(&private_key)
                     .name("mail-kraken")

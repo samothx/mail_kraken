@@ -10,6 +10,11 @@ name  = "import"
 test = false
 bench = false
 
+#[[bin]]
+#name  = "serve"
+#test = false
+#bench = false
+
 [dependencies]
 
 log = "0.4"

@@ -1,150 +1,134 @@
-use crate::doveadm::{Fetch, FetchFieldRes, FetchParams, FetchRecord, ImapField, SearchParam};
+use super::doveadm::{Fetch, FetchParams, ImapField, SearchParam};
+use super::{Config, ImportArgs};
 use anyhow::{anyhow, Context, Result};
-use log::{debug, error, info, trace, warn};
-use mysql_async::prelude::{BatchQuery, Query, Queryable, WithParams};
-use mysql_async::{params, Conn, Pool};
+use log::{debug, error, info};
+use mod_logger::Logger;
+use mysql::{prelude::Queryable, Pool};
+
+use nix::unistd::getuid;
 use regex::Regex;
-use tokio::task::JoinHandle;
+
+mod db;
+use db::init_user;
+mod email_db;
 
 mod email_parser;
-use crate::db::email_db::{EmailDb, EmailType};
+use crate::import::db::{process_record, Buffers};
+use crate::import::email_db::EmailDb;
 use email_parser::EmailParser;
-
-mod email_db;
 
 const DB_VERSION: u32 = 1;
 
-const HDR_NAME_FROM: &str = "From";
-const HDR_NAME_TO: &str = "To";
-const HDR_NAME_CC: &str = "CC";
-const HDR_NAME_BCC: &str = "BCC";
-const HDR_NAME_SUBJ: &str = "Subject";
-const HDR_NAME_RECV: &str = "Received";
+// sync import used by sync process
+pub fn import(args: ImportArgs) -> Result<()> {
+    Logger::set_default_level(args.log_level);
+    Logger::set_color(true);
+    Logger::set_brief_info(true);
 
-const RECV_UID: u32 = 0x1;
-const RECV_GUID: u32 = 0x2;
-const RECV_DATE_RECV: u32 = 0x4;
-const RECV_DATE_SAVD: u32 = 0x8;
-const RECV_DATE_SENT: u32 = 0x10;
-const RECV_SIZE: u32 = 0x20;
-const RECV_MAILBOX: u32 = 0x40;
-const RECV_FLAGS: u32 = 0x80;
-const RECV_HDRS: u32 = 0x100;
-const RECV_FROM: u32 = 0x200;
-const RECV_TO: u32 = 0x400;
-const RECV_SUBJ: u32 = 0x800;
-const RECV_CC: u32 = 0x1000;
-const RECV_BCC: u32 = 0x2000;
-const RECV_RECEIVED: u32 = 0x4000;
+    info!("started for user : '{}'", args.user);
 
-const RECV_HEADERS: u32 = RECV_TO | RECV_FROM | RECV_SUBJ;
-const RECV_HEADERS_ALL: u32 = RECV_HEADERS | RECV_CC | RECV_BCC | RECV_RECEIVED;
+    if !getuid().is_root() {
+        return Err(anyhow!("please run this command as root"));
+    }
 
-const RECV_REQUIRED: u32 = RECV_UID
-    | RECV_GUID
-    | RECV_DATE_SAVD
-    | RECV_DATE_RECV
-    | RECV_DATE_SENT
-    | RECV_SIZE
-    | RECV_MAILBOX
-    | RECV_FLAGS
-    | RECV_HDRS;
+    let config = Config::from_file().with_context(|| "failed to read config file".to_owned())?;
 
-pub async fn init_db(pool: Pool) -> Result<()> {
-    debug!("init: entered");
-    let mut db_conn = pool
-        .get_conn()
-        .await
-        .with_context(|| "failed to get a connection from database pool".to_owned())?;
+    let pool = Pool::new(
+        config
+            .get_db_url()
+            .ok_or_else(|| anyhow!("db_url is not set in config"))?
+            .as_str(),
+    )
+    .with_context(|| "failed to connect to db".to_owned())?;
 
-    let tables: Vec<String> = "show tables".fetch(&mut db_conn).await?;
-    if tables.is_empty() {
-        // database is uninitialized
-        info!("initializing database");
-        let db_init_script = String::from_utf8_lossy(include_bytes!("../sql/init_db_v1.sql"));
-        match db_init_script.ignore(&mut db_conn).await {
-            Ok(_) => (),
+    let mut pooled_db_conn = pool.get_conn()?;
+    let db_conn = pooled_db_conn.as_mut();
+    if let Some(version) = db_conn.query_first::<u32, &str>(r#"select max(version) from db_ver"#)? {
+        if version != DB_VERSION {
+            return Err(anyhow!(format!(
+                "invalid database version found: got {}, required {}",
+                version, DB_VERSION
+            )));
+        }
+    } else {
+        return Err(anyhow!("unable to retrieve version from database"));
+    }
+
+    let (user_id, empty) = init_user(db_conn, args.user.as_str())?;
+
+    let fetch_params = FetchParams::new(args.user.to_owned())
+        .add_field(ImapField::Flags)
+        .add_field(ImapField::Guid)
+        .add_field(ImapField::Uid)
+        .add_field(ImapField::Mailbox)
+        .add_field(ImapField::Hdr)
+        .add_field(ImapField::SizePhysical)
+        .add_field(ImapField::DateSent)
+        .add_field(ImapField::DateSaved)
+        .add_field(ImapField::DateReceived)
+        .add_search_param(SearchParam::All);
+    let mut fetch_cmd = Fetch::new(fetch_params)?;
+
+    let date_time_tz_regex = Regex::new(r"^(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s\(([^)]+)\)$")?;
+    let mut email_db = EmailDb::new();
+    let mut email_parser = EmailParser::new();
+    let mut buffers = Buffers::new();
+
+    let mut msg_count = 0usize;
+    let mut insert_count = 0usize;
+    let ts_start = chrono::Local::now();
+
+    if empty {
+        while let Some(record) = match fetch_cmd.parse_record() {
+            Ok(res) => res,
             Err(e) => {
-                let err_str = e.to_string();
-                error!("failed to initialize database: {:?}", err_str.as_str());
-                return Err(e).with_context(|| {
-                    format!("failed to initialize database: {:?}", err_str.as_str())
-                });
+                error!("scan: parser failed with {:?}", e);
+                return Err(e);
+            }
+        } {
+            msg_count += 1;
+            match process_record(
+                db_conn,
+                user_id,
+                record,
+                &mut buffers,
+                &date_time_tz_regex,
+                &mut email_parser,
+                &mut email_db,
+            ) {
+                Ok(_) => {
+                    insert_count += 1;
+                }
+                Err(e) => {
+                    error!("scan: process_record failed: {:?}", e);
+                    continue;
+                }
+            };
+            if msg_count % 20 == 0 {
+                let duration = chrono::Local::now() - ts_start;
+                debug!(
+                    "scan: processed {} messages, inserted {} in {} seconds, {} inserted/second",
+                    msg_count,
+                    insert_count,
+                    duration.num_seconds(),
+                    insert_count * 1000 / duration.num_milliseconds() as usize
+                );
             }
         }
 
-        Ok(())
-    } else if !tables.contains(&"db_ver".to_owned()) {
-        Err(anyhow!(
-            "database is not empty but does not contain the db_ver table"
-        ))
+        email_db.flush_to_db(db_conn, user_id)?;
     } else {
-        let db_ver: Option<u32> = db_conn
-            .query_first("select max(version) from db_ver")
-            .await?;
-        if let Some(version) = db_ver {
-            if version == DB_VERSION {
-                Ok(())
-            } else {
-                Err(anyhow!(
-                    "invalid database version: expected {}, got {}",
-                    DB_VERSION,
-                    version
-                ))
-            }
-        } else {
-            Err(anyhow!(
-                "invalid database version: expected {}, got none",
-                DB_VERSION,
-            ))
-        }
+        return Err(anyhow!(
+            "user db contains values & update is not implemented"
+        ));
     }
+
+    Ok(())
 }
 
-pub async fn init_user(pool: Pool, user: &str) -> Result<Option<JoinHandle<Result<()>>>> {
-    debug!("init_user: called for {}", user);
+/*
 
-    let mut db_conn = pool.get_conn().await?;
-    let user_id: Option<u64> = r"select id from user where user=:user"
-        .with(params! {"user"=>user})
-        .first(&mut db_conn)
-        .await?;
-
-    let (user_id, count) = if let Some(user_id) = user_id {
-        (
-            user_id,
-            r"select count(*) from record where user_id=:user_id"
-                .with(params! {"user_id"=>user_id})
-                .first(&mut db_conn)
-                .await?
-                .unwrap_or(0u64),
-        )
-    } else {
-        r"insert into user (user) values(:user)"
-            .with(params! {"user"=>user})
-            .ignore(&mut db_conn)
-            .await?;
-        (
-            db_conn
-                .last_insert_id()
-                .ok_or_else(|| anyhow!("failed to retrieve last user_id from db"))?,
-            0,
-        )
-    };
-
-    if count == 0 {
-        // start a background job fill database for user
-        let user_cpy = user.to_owned();
-        Ok(Some(tokio::spawn(async move {
-            let user = user_cpy;
-            scan(db_conn, user, user_id).await
-        })))
-    } else {
-        Ok(None)
-    }
-}
-
-pub async fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
+pub fn scan(db_conn: Conn, user: String, user_id: u64) -> Result<()> {
     debug!("scan: fetching,  id: {} ", user_id);
 
     let date_time_tz_regex = Regex::new(r"^(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s\(([^)]+)\)$")?;
@@ -394,7 +378,7 @@ async fn process_record(
 
         r#"insert into record (user_id,uid,guid,mailbox,dt_sent,tz_sent,dt_recv,dt_saved,size,mail_subj,outbound, mail_from)
  values(:user_id,:uid,:guid,:mailbox,:dt_sent,:tz_sent,:dt_recv,:dt_saved,:size,:subj,:outbound, :mail_from)"#
-                .with(params! {
+            .with(params! {
             "user_id"=>user_id,
             "uid"=>read_buf.uid.as_str(),
             "guid"=>read_buf.guid.as_str(),
@@ -407,9 +391,9 @@ async fn process_record(
             "subj"=>read_buf.subj.as_str(),
             "outbound"=>(received & RECV_RECEIVED) != RECV_RECEIVED,
                 "mail_from" => email_from})
-                .ignore(&mut db_conn.db_conn)
-                .await
-                .with_context(|| "failed to insert record".to_owned())?;
+            .ignore(&mut db_conn.db_conn)
+            .await
+            .with_context(|| "failed to insert record".to_owned())?;
         if let Some(record_id) = db_conn.db_conn.last_insert_id() {
             if !read_buf.flags.is_empty() {
                 r"insert into imap_flag (record_id, name) values(:record_id,:name)"
@@ -425,15 +409,15 @@ async fn process_record(
             }
             if !read_buf.hdr.is_empty() {
                 r"insert into header (record_id, seq, name, value) values(:record_id,:seq,:name,:value)"
-                        .with(read_buf.hdr.iter()
-                            .filter(|(name,_value)|
-                                match name.as_str() {
-                                    HDR_NAME_FROM | HDR_NAME_TO | HDR_NAME_SUBJ | HDR_NAME_CC | HDR_NAME_BCC => false,
-                                    _ => true
-                                }
-                            )
-                            .enumerate()
-                            .map(|(idx, hdr)| {
+                    .with(read_buf.hdr.iter()
+                        .filter(|(name,_value)|
+                            match name.as_str() {
+                                HDR_NAME_FROM | HDR_NAME_TO | HDR_NAME_SUBJ | HDR_NAME_CC | HDR_NAME_BCC => false,
+                                _ => true
+                            }
+                        )
+                        .enumerate()
+                        .map(|(idx, hdr)| {
                             params! {   "record_id"=> record_id,
                                     "seq"=> idx,
                                     "name" => hdr.0.to_owned(),
@@ -535,10 +519,6 @@ async fn process_record(
     }
 }
 
-pub struct DbConCntr {
-    db_conn: Conn,
-}
-
 struct ReadBuf {
     guid: String,
     uid: String,
@@ -576,3 +556,4 @@ impl ReadBuf {
         }
     }
 }
+*/

@@ -1,8 +1,8 @@
 use anyhow::Result;
-use mail_kraken::{run, CmdArgs};
+use mail_kraken::{serve, ServeArgs};
 use structopt::StructOpt;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    run(CmdArgs::from_args()).await
+    serve(ServeArgs::from_args()).await
 }

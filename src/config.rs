@@ -28,9 +28,15 @@ impl Config {
         })
     }
 
-    pub async fn from_file() -> Result<Config> {
+    pub fn from_file() -> Result<Config> {
         debug!("attempting to read config from {}", CONFIG_FILE);
-        let cfg_str = fs::read_to_string(CONFIG_FILE).await?;
+        let cfg_str = std::fs::read_to_string(CONFIG_FILE)?;
+        Ok(toml::from_str(cfg_str.as_str())?)
+    }
+
+    pub async fn from_file_async() -> Result<Config> {
+        debug!("attempting to read config from {}", CONFIG_FILE);
+        let cfg_str = tokio::fs::read_to_string(CONFIG_FILE).await?;
         Ok(toml::from_str(cfg_str.as_str())?)
     }
 

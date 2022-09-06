@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Result};
-use async_trait::async_trait;
 use log::debug;
 use regex::Regex;
 
@@ -22,13 +21,13 @@ const FORM_FEED_STR: &str = "\u{c}";
 pub struct FetchRecord(Vec<FetchFieldRes>);
 
 impl FetchRecord {
-    pub async fn parse(
-        parsers: &[Box<dyn Parser + Sync + Send>],
+    pub fn parse(
+        parsers: &[Box<dyn Parser>],
         reader: &mut StdoutLineReader,
     ) -> Result<Option<FetchRecord>> {
         debug!("FetchRecord::parse: started");
 
-        if let Some(line) = reader.next_line().await? {
+        if let Some(line) = reader.next_line()? {
             debug!("parse: got line: {:?}", line);
             if !line.ends_with(FORM_FEED) {
                 reader.unconsume();
@@ -45,13 +44,10 @@ impl FetchRecord {
             let parser = parsers.next().expect("unexpected empty parser list");
             let mut next_parser = parsers.next();
 
-            if let Some(curr_res) = parser
-                .parse_first_field(
-                    reader,
-                    next_parser.unwrap_or(first_parser).get_first_line_re(),
-                )
-                .await?
-            {
+            if let Some(curr_res) = parser.parse_first_field(
+                reader,
+                next_parser.unwrap_or(first_parser).get_first_line_re(),
+            )? {
                 res.push(curr_res);
             } else {
                 // EOI on first field
@@ -60,14 +56,10 @@ impl FetchRecord {
 
             while let Some(parser) = next_parser {
                 next_parser = parsers.next();
-                res.push(
-                    parser
-                        .parse_subseq_field(
-                            reader,
-                            next_parser.unwrap_or(first_parser).get_first_line_re(),
-                        )
-                        .await?,
-                );
+                res.push(parser.parse_subseq_field(
+                    reader,
+                    next_parser.unwrap_or(first_parser).get_first_line_re(),
+                )?);
             }
 
             Ok(Some(FetchRecord(res)))
@@ -108,26 +100,25 @@ pub enum FetchFieldRes {
     // Generic((ImapField, FieldType)),
 }
 
-#[async_trait]
 pub trait Parser {
     // used by some preceding parsers to find the end of record (start of next)
     fn get_first_line_re(&self) -> &Regex;
     // parse a field (all lines of it) - only the first field of a record may encounter an EOI
     // next_re: ist the next fields first line parser regex - if it is None, there is no next field
     // and we will have to use this parsers first line re
-    async fn parse_first_field(
+    fn parse_first_field(
         &self,
         reader: &mut StdoutLineReader,
         next_re: &Regex,
     ) -> Result<Option<FetchFieldRes>>;
     // parse a field (all lines of it) - for any field other than the first of a record an EOI
     // constitutes an error
-    async fn parse_subseq_field(
+    fn parse_subseq_field(
         &self,
         reader: &mut StdoutLineReader,
         next_re: &Regex,
     ) -> Result<FetchFieldRes> {
-        if let Some(res) = self.parse_first_field(reader, next_re).await? {
+        if let Some(res) = self.parse_first_field(reader, next_re)? {
             Ok(res)
         } else {
             Err(anyhow!("unexpected empty subsequent field"))
