@@ -229,7 +229,7 @@ pub fn process_record(
                     buffers
                         .flags
                         .iter()
-                        .map(|flag| params! {"record_id" => record_id, "name" => flag}),
+                        .map(|flag| params! {"record_id" => record_id, "name" => flag.as_str()}),
                 )
                 .with_context(|| "failed to insert imap_flags".to_owned())?;
             debug!("process_record: flags inserted");
