@@ -80,7 +80,7 @@ impl EmailDb {
             };
 
             let mut info = EmailInfo::new(email_id, &email_type);
-
+            debug!("add_email: inserting new mail_stats");
             db_conn
                 .exec_drop(
                     ST_MS_INSERT,
@@ -96,10 +96,11 @@ impl EmailDb {
                         "spam"=>info.spam
                     },
                 )
-                .with_context(|| "add_email: failed to insert email_stats".to_owned())?;
+                .with_context(|| "add_email: failed to insert mail_stats".to_owned())?;
 
             if let Some(name) = name {
                 if info.names.insert(name.to_owned()) {
+                    debug!("add_email: inserting new mail_name: {}", name);
                     db_conn
                         .exec_drop(
                             ST_MN_INSERT,
