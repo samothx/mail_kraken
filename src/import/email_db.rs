@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use log::{debug, error, info};
+use log::debug;
 use mysql::{params, prelude::Queryable, Conn};
 use std::collections::{BTreeMap, HashSet};
 
@@ -58,6 +58,7 @@ impl EmailDb {
                 db_conn.exec_drop(ST_M_INSERT, params! {"email" => email})
             {
                 if is_db_dup_key(&e) {
+                    debug!("add_email: email exists in db {}, retrieving id", email);
                     if let Some(email_id) = db_conn
                         .exec_first(ST_M_SELECT, params! {"email" => email})
                         .with_context(|| "add_email: failed to select email".to_owned())?
@@ -97,6 +98,12 @@ impl EmailDb {
                     },
                 )
                 .with_context(|| "add_email: failed to insert mail_stats".to_owned())?;
+            debug!(
+                "add_email: inserted mail_stats for {}, {}-{}",
+                email, info.id, user_id
+            );
+
+            info.updated = false;
 
             if let Some(name) = name {
                 if info.names.insert(name.to_owned()) {
@@ -112,7 +119,7 @@ impl EmailDb {
                 }
             }
 
-            if let Some(_) = self.email.insert(email.to_owned(), info) {
+            if self.email.insert(email.to_owned(), info).is_some() {
                 panic!("add_email: unexpected existing value in map");
             }
 

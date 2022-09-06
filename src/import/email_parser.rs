@@ -14,7 +14,7 @@ impl EmailParser {
     pub fn new() -> Self {
         Self {
             email_regex: Regex::new(EMAIL_REGEX)
-                .expect(format!("failed to create regex from [{}]", EMAIL_REGEX).as_str()),
+                .unwrap_or_else(|_| panic!("failed to create regex from [{}]", EMAIL_REGEX)),
             collect: String::with_capacity(256),
             email: String::with_capacity(256),
             name: String::with_capacity(256),
@@ -140,13 +140,12 @@ impl EmailParser {
                         self.name.push(ch);
                     }
                 }
-                State::AfterEmail => match ch {
-                    ',' => {
+                State::AfterEmail => {
+                    if ch == ',' {
                         state = State::Init;
                         // trace!("parse:   -> {:?} on {}", state, ch);
                     }
-                    _ => (),
-                },
+                }
                 State::EscapeDoubleQuoted => {
                     if ch == '"' {
                         state = State::NameQuoted;
@@ -170,7 +169,7 @@ impl EmailParser {
 
         if state == State::Email {
             res.push((
-                self.email.to_lowercase().clone(),
+                self.email.to_lowercase(),
                 if self.name.is_empty() {
                     None
                 } else {

@@ -1,7 +1,7 @@
 use super::doveadm::{Fetch, FetchParams, ImapField, SearchParam};
 use super::{Config, ImportArgs};
 use anyhow::{anyhow, Context, Result};
-use log::{debug, error, info};
+use log::{error, info};
 use mod_logger::Logger;
 use mysql::{prelude::Queryable, Pool};
 

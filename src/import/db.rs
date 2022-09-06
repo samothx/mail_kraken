@@ -241,10 +241,15 @@ pub fn process_record(
                     buffers
                         .hdr
                         .iter()
-                        .filter(|(name, _value)| match name.as_str() {
-                            HDR_NAME_FROM | HDR_NAME_TO | HDR_NAME_SUBJ | HDR_NAME_CC
-                            | HDR_NAME_BCC => false,
-                            _ => true,
+                        .filter(|(name, _value)| {
+                            !matches!(
+                                name.as_str(),
+                                HDR_NAME_FROM
+                                    | HDR_NAME_TO
+                                    | HDR_NAME_SUBJ
+                                    | HDR_NAME_CC
+                                    | HDR_NAME_BCC
+                            )
                         })
                         .enumerate()
                         .map(|(idx, hdr)| {
