@@ -33,6 +33,7 @@ impl EmailDb {
     ) -> Result<u64> {
         debug!("add_email: {}", email);
         let email_id = if let Some(info) = self.email.get_mut(email) {
+            debug!("add_email: email found {}", email);
             // work with cached value
             info.process(&email_type);
 
@@ -52,6 +53,7 @@ impl EmailDb {
             info.id
         } else {
             // try to insert
+            debug!("add_email: email not found {}, inserting", email);
             let email_id = if let Err(e) =
                 db_conn.exec_drop(ST_M_INSERT, params! {"email" => email})
             {
@@ -78,6 +80,7 @@ impl EmailDb {
             };
 
             let mut info = EmailInfo::new(email_id, &email_type);
+
             db_conn
                 .exec_drop(
                     ST_MS_INSERT,
@@ -107,9 +110,11 @@ impl EmailDb {
                         .with_context(|| "add_email: failed to insert mail_name".to_owned())?;
                 }
             }
+
             if let Some(_) = self.email.insert(email.to_owned(), info) {
-                panic!("add_email: unexpected existing value in table");
+                panic!("add_email: unexpected existing value in map");
             }
+
             email_id
         };
 
