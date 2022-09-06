@@ -108,14 +108,19 @@ impl EmailDb {
             if let Some(name) = name {
                 if info.names.insert(name.to_owned()) {
                     debug!("add_email: inserting new mail_name: {}", name);
-                    db_conn
-                        .exec_drop(
-                            ST_MN_INSERT,
-                            params! {
-                                "email_id"=>email_id,"name"=>name
-                            },
-                        )
-                        .with_context(|| "add_email: failed to insert mail_name".to_owned())?;
+                    if let Err(e) = db_conn.exec_drop(
+                        ST_MN_INSERT,
+                        params! {
+                            "email_id"=>email_id,"name"=>name
+                        },
+                    ) {
+                        if is_db_dup_key(&e) {
+                            debug!("add_email: duplicate key adding mail name {}", name);
+                        } else {
+                            return Err(e)
+                                .with_context(|| format!("failed to insert mail_name: {}", name));
+                        }
+                    }
                 }
             }
 
