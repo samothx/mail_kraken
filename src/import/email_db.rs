@@ -31,7 +31,7 @@ impl EmailDb {
         name: Option<&str>,
         email_type: EmailType,
     ) -> Result<u64> {
-        error!("add_email");
+        debug!("add_email: {}", email);
         let email_id = if let Some(info) = self.email.get_mut(email) {
             // work with cached value
             info.process(&email_type);
