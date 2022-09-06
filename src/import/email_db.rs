@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use log::debug;
 use mysql::{params, prelude::Queryable, Conn};
 use std::collections::{BTreeMap, HashSet};
 
@@ -58,17 +59,21 @@ impl EmailDb {
                         .exec_first(ST_M_SELECT, params! {"email" => email})
                         .with_context(|| "add_email: failed to select email".to_owned())?
                     {
+                        debug!("add_email: got existing email_id: {}", email_id);
                         email_id
                     } else {
                         return Err(e).with_context(|| {
-                            format!("failed to retrieve id for email: {}", email)
+                            format!("add_email: failed to retrieve id for email: {}", email)
                         });
                     }
                 } else {
-                    return Err(e).with_context(|| format!("failed to insert email: {}", email));
+                    return Err(e)
+                        .with_context(|| format!("add_email: failed to insert email: {}", email));
                 }
             } else {
-                db_conn.last_insert_id()
+                let email_id = db_conn.last_insert_id();
+                debug!("add_email: inserted email with email_id: {}", email_id);
+                email_id
             };
 
             let mut info = EmailInfo::new(email_id, &email_type);
