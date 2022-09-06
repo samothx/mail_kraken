@@ -100,14 +100,14 @@ pub fn import(args: ImportArgs) -> Result<()> {
                     insert_count += 1;
                 }
                 Err(e) => {
-                    error!("scan: process_record failed: {:?}", e);
+                    error!("import: process_record failed: {:?}", e);
                     continue;
                 }
             };
             if msg_count % 20 == 0 {
                 let duration = chrono::Local::now() - ts_start;
-                debug!(
-                    "scan: processed {} messages, inserted {} in {} seconds, {} inserted/second",
+                info!(
+                    "import: processed {} messages, inserted {} in {} seconds, {} inserted/second",
                     msg_count,
                     insert_count,
                     duration.num_seconds(),
