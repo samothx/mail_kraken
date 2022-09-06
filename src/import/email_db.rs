@@ -122,7 +122,7 @@ impl EmailDb {
         Ok(email_id)
     }
 
-    pub fn flush_to_db(mut self, db_conn: &mut Conn, user_id: u64) -> Result<()> {
+    pub fn flush_to_db(&mut self, db_conn: &mut Conn, user_id: u64) -> Result<()> {
         db_conn
             .exec_batch(
                 ST_MS_UPDATE,

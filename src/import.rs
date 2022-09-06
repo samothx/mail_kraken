@@ -79,6 +79,7 @@ pub fn import(args: ImportArgs) -> Result<()> {
     let ts_start = chrono::Local::now();
 
     if empty {
+        let mut last_flush = ts_start;
         while let Some(record) = match fetch_cmd.parse_record() {
             Ok(res) => res,
             Err(e) => {
@@ -105,7 +106,8 @@ pub fn import(args: ImportArgs) -> Result<()> {
                 }
             };
             if msg_count % 20 == 0 {
-                let duration = chrono::Local::now() - ts_start;
+                let now = chrono::Local::now();
+                let duration = now - ts_start;
                 info!(
                     "import: processed {} messages, inserted {} in {} seconds, {} inserted/second",
                     msg_count,
@@ -113,6 +115,11 @@ pub fn import(args: ImportArgs) -> Result<()> {
                     duration.num_seconds(),
                     insert_count * 1000 / duration.num_milliseconds() as usize
                 );
+
+                if (now - last_flush).num_seconds() > 20 {
+                    last_flush = now;
+                    email_db.flush_to_db(db_conn, user_id)?;
+                }
             }
         }
 
