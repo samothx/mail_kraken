@@ -7,7 +7,7 @@ const ST_MS_INSERT: &str = r#"insert into mail_stats (email_id,user_id,reference
     values(:email_id,:user_id,:referenced,:inbound,:outbound,:receiver,:aux_receiver,:seen,:spam)"#;
 const ST_MS_UPDATE: &str = r#"update mail_stats set referenced=:referenced,inbound=:inbound,outbound=:outbound,receiver=:receiver,
     aux_receiver=:aux_receiver,seen=:seen,spam=:spam where email_id=:email_id and user_id=:user_id"#;
-const ST_MN_INSERT: &str = r#""#;
+const ST_MN_INSERT: &str = r#"insert into mail_name (email_id,name) values(:email_id,:name)"#;
 
 const ST_M_INSERT: &str = r#"insert into email (email) values(:email)"#;
 const ST_M_SELECT: &str = r#"select id from email where email=:email"#;
