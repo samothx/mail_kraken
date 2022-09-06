@@ -48,7 +48,8 @@ CREATE TABLE `record` (
 CREATE TABLE `mail_to` (
     `record_id` bigint unsigned NOT NULL,
     `email_id` bigint unsigned NOT NULL,
-    PRIMARY KEY (record_id, email_id),
+    `seq` int unsigned NOT NULL,
+    PRIMARY KEY (record_id, email_id, seq),
     CONSTRAINT `fk_mail_to_record_id`
        FOREIGN KEY (record_id) REFERENCES record (id)
            ON DELETE CASCADE
@@ -62,7 +63,8 @@ CREATE TABLE `mail_to` (
 CREATE TABLE `mail_cc` (
     `record_id` bigint unsigned NOT NULL,
     `email_id` bigint unsigned NOT NULL,
-    PRIMARY KEY (record_id, email_id),
+    `seq` int unsigned NOT NULL,
+    PRIMARY KEY (record_id, email_id, seq),
     CONSTRAINT `fk_mail_cc_record_id`
        FOREIGN KEY (record_id) REFERENCES record (id)
            ON DELETE CASCADE
@@ -76,7 +78,8 @@ CREATE TABLE `mail_cc` (
 CREATE TABLE `mail_bcc` (
     `record_id` bigint unsigned NOT NULL,
     `email_id` bigint unsigned NOT NULL,
-    PRIMARY KEY (record_id, email_id),
+    `seq` int unsigned NOT NULL,
+    PRIMARY KEY (record_id, email_id, seq),
     CONSTRAINT `fk_mail_bcc_record_id`
        FOREIGN KEY (record_id) REFERENCES record (id)
            ON DELETE CASCADE

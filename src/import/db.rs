@@ -44,13 +44,13 @@ const ST_HDR_INSERT: &str =
     r#"insert into header (record_id, seq, name, value) values(:record_id,:seq,:name,:value)"#;
 
 const ST_MTO_INSERT: &str =
-    r#"insert into mail_to (record_id, email_id) values(:record_id,:email_id)"#;
+    r#"insert into mail_to (record_id, email_id, seq) values(:record_id,:email_id,:seq)"#;
 
 const ST_MCC_INSERT: &str =
-    r#"insert into mail_cc (record_id, email_id) values(:record_id,:email_id)"#;
+    r#"insert into mail_cc (record_id, email_id, seq) values(:record_id,:email_id,:seq)"#;
 
 const ST_MBCC_INSERT: &str =
-    r#"insert into mail_bcc (record_id, email_id) values(:record_id,:email_id)"#;
+    r#"insert into mail_bcc (record_id, email_id, seq) values(:record_id,:email_id,:seq)"#;
 
 pub fn process_record(
     db_conn: &mut Conn,
@@ -262,7 +262,7 @@ pub fn process_record(
                 .with_context(|| "process_record: failed to insert headers".to_owned())?;
         }
         if !buffers.to.is_empty() {
-            for (email, name, valid) in buffers.to.iter() {
+            for (seq, (email, name, valid)) in buffers.to.iter().enumerate() {
                 if *valid {
                     let email_id = email_db.add_email(
                         db_conn,
@@ -279,14 +279,14 @@ pub fn process_record(
                     db_conn
                         .exec_drop(
                             ST_MTO_INSERT,
-                            params! {   "record_id"=> record_id, "email_id"=> email_id },
+                            params! {   "seq"=>seq, "record_id"=> record_id, "email_id"=> email_id },
                         )
                         .with_context(|| "process_record: failed to insert mail_to".to_owned())?;
                 }
             }
         }
         if !buffers.cc.is_empty() {
-            for (email, name, valid) in buffers.cc.iter() {
+            for (seq, (email, name, valid)) in buffers.cc.iter().enumerate() {
                 if *valid {
                     let email_id = email_db.add_email(
                         db_conn,
@@ -303,14 +303,14 @@ pub fn process_record(
                     db_conn
                         .exec_drop(
                             ST_MCC_INSERT,
-                            params! {   "record_id"=> record_id, "email_id"=> email_id },
+                            params! {  "seq"=>seq,  "record_id"=> record_id, "email_id"=> email_id },
                         )
                         .with_context(|| "process_record: failed to insert mail_cc".to_owned())?;
                 }
             }
         }
         if !buffers.bcc.is_empty() {
-            for (email, name, valid) in buffers.bcc.iter() {
+            for (seq, (email, name, valid)) in buffers.bcc.iter().enumerate() {
                 if *valid {
                     let email_id = email_db.add_email(
                         db_conn,
@@ -327,7 +327,7 @@ pub fn process_record(
                     db_conn
                         .exec_drop(
                             ST_MBCC_INSERT,
-                            params! {   "record_id"=> record_id, "email_id"=> email_id },
+                            params! { "seq"=>seq, "record_id"=> record_id, "email_id"=> email_id },
                         )
                         .with_context(|| "process_record: failed to insert mail_bcc".to_owned())?;
                 }
