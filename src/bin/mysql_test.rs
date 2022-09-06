@@ -21,7 +21,7 @@ fn main() -> Result<()> {
     println!("creating table");
     db_conn.query_drop(ST_CREATE_TABLE)?;
 
-    let strings = vec!["str1", "str2", "str3", "str4", "str5", "str6"];
+    let strings = vec!["\\Seen"];
     println!("inserting strings");
     db_conn.exec_batch(ST_INSERT, strings.iter().map(|val| params! {"test"=>*val}))?;
 
