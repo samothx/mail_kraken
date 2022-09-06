@@ -219,7 +219,9 @@ pub fn process_record(
                 "mail_from" => email_from}).with_context(|| "failed to insert record".to_owned())?;
 
         let record_id = db_conn.last_insert_id();
+
         if !buffers.flags.is_empty() {
+            debug!("process_record: inserting flags: {:?}", buffers.flags);
             db_conn
                 .exec_batch(
                     ST_IF_INSERT,
@@ -229,6 +231,7 @@ pub fn process_record(
                         .map(|flag| params! {"record_id" => record_id, "name" => flag}),
                 )
                 .with_context(|| "failed to insert imap_flags".to_owned())?;
+            debug!("process_record: flags inserted");
         }
         if !buffers.hdr.is_empty() {
             db_conn
