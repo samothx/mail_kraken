@@ -33,7 +33,7 @@ CREATE TABLE `record` (
     `outbound` BOOL NOT NULL,
     `mail_from` bigint unsigned,
     UNIQUE (user_id,uid,mailbox),
-    UNIQUE (guid),
+    # UNIQUE (guid),
     PRIMARY KEY (`id`),
     CONSTRAINT `fk_record_user_id`
         FOREIGN KEY (user_id) REFERENCES user (id)

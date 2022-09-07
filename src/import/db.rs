@@ -35,23 +35,6 @@ pub fn init_user(db_conn: &mut Conn, user: &str) -> Result<(UserId, bool)> {
     })
 }
 
-const ST_REC_INSERT: &str = r#"insert into record (user_id,uid,guid,mailbox,dt_sent,tz_sent,dt_recv,dt_saved,size,mail_subj,outbound, mail_from)
-    values(:user_id,:uid,:guid,:mailbox,:dt_sent,:tz_sent,:dt_recv,:dt_saved,:size,:subj,:outbound, :mail_from)"#;
-
-const ST_IF_INSERT: &str = r#"insert into imap_flag (record_id, name) values(:record_id,:name)"#;
-
-const ST_HDR_INSERT: &str =
-    r#"insert into header (record_id, seq, name, value) values(:record_id,:seq,:name,:value)"#;
-
-const ST_MTO_INSERT: &str =
-    r#"insert into mail_to (record_id, email_id, seq) values(:record_id,:email_id,:seq)"#;
-
-const ST_MCC_INSERT: &str =
-    r#"insert into mail_cc (record_id, email_id, seq) values(:record_id,:email_id,:seq)"#;
-
-const ST_MBCC_INSERT: &str =
-    r#"insert into mail_bcc (record_id, email_id, seq) values(:record_id,:email_id,:seq)"#;
-
 pub fn process_record(
     db_conn: &mut Conn,
     user_id: u64,
@@ -62,6 +45,8 @@ pub fn process_record(
     email_db: &mut EmailDb,
 ) -> Result<()> {
     let mut received = 0;
+
+    // collect fetch fields, ensure all needed fields are there & store in Buffers
     for item in record.into_iter() {
         // debug!("process_record: got {:?}", item);
         match item {
@@ -105,6 +90,7 @@ pub fn process_record(
     }
 
     if (received & RECV_HDRS) == RECV_HDRS {
+        // extract fields fom headers
         for (name, value) in buffers.hdr.iter() {
             match name.to_lowercase().as_str() {
                 HDR_NAME_RECV => {
@@ -417,3 +403,20 @@ const RECV_REQUIRED: u32 = RECV_UID
     | RECV_MAILBOX
     | RECV_FLAGS
     | RECV_HDRS;
+
+const ST_REC_INSERT: &str = r#"insert into record (user_id,uid,guid,mailbox,dt_sent,tz_sent,dt_recv,dt_saved,size,mail_subj,outbound, mail_from)
+    values(:user_id,:uid,:guid,:mailbox,:dt_sent,:tz_sent,:dt_recv,:dt_saved,:size,:subj,:outbound, :mail_from)"#;
+
+const ST_IF_INSERT: &str = r#"insert into imap_flag (record_id, name) values(:record_id,:name)"#;
+
+const ST_HDR_INSERT: &str =
+    r#"insert into header (record_id, seq, name, value) values(:record_id,:seq,:name,:value)"#;
+
+const ST_MTO_INSERT: &str =
+    r#"insert into mail_to (record_id, email_id, seq) values(:record_id,:email_id,:seq)"#;
+
+const ST_MCC_INSERT: &str =
+    r#"insert into mail_cc (record_id, email_id, seq) values(:record_id,:email_id,:seq)"#;
+
+const ST_MBCC_INSERT: &str =
+    r#"insert into mail_bcc (record_id, email_id, seq) values(:record_id,:email_id,:seq)"#;
