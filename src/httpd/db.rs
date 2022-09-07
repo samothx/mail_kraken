@@ -1,6 +1,11 @@
-use anyhow::{Context, Result};
-use log::{debug, info};
-use mysql_async::{prelude::Query, Pool};
+use crate::{UserId, DB_VERSION};
+use anyhow::{anyhow, Context, Result};
+use log::{debug, error, info};
+use mysql_async::{
+    params,
+    prelude::{Query, Queryable, WithParams},
+    Pool,
+};
 
 pub async fn init_db(pool: Pool) -> Result<()> {
     debug!("init: entered");
@@ -31,10 +36,11 @@ pub async fn init_db(pool: Pool) -> Result<()> {
             "database is not empty but does not contain the db_ver table"
         ))
     } else {
-        let db_ver: Option<u32> = db_conn
-            .query_first("select max(version) from db_ver")
-            .await?;
-        if let Some(version) = db_ver {
+        // let db_ver: Option<u32> = ;
+        if let Some(version) = db_conn
+            .query_first::<u32, &str>(r#"select max(version) from db_ver"#)
+            .await?
+        {
             if version == DB_VERSION {
                 Ok(())
             } else {
@@ -53,6 +59,29 @@ pub async fn init_db(pool: Pool) -> Result<()> {
     }
 }
 
-pub struct DbConCntr {
-    db_conn: Conn,
+pub async fn init_user(pool: Pool, user: &str) -> Result<UserId> {
+    debug!("init_user: called for {}", user);
+
+    let mut db_conn = pool.get_conn().await?;
+
+    let user_id = r#"select id from user where user=:user"#
+            .with(params! {"user"=>user})
+            .first(&mut db_conn)
+            .await?;
+
+    Ok(if let Some(user_id) = user_id {
+        user_id
+    } else {
+        r#"insert into user (user) values(:user)"#
+            .with(params! {"user"=>user})
+            .ignore(&mut db_conn)
+            .await?;
+        db_conn
+            .last_insert_id()
+            .ok_or_else(|| anyhow!("init_user: failed to retrieve last insert id"))?
+    })
 }
+
+/*pub struct DbConCntr {
+    db_conn: Conn,
+}*/

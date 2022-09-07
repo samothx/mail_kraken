@@ -15,9 +15,8 @@ mod email_db;
 mod email_parser;
 use crate::import::db::{process_record, Buffers};
 use crate::import::email_db::EmailDb;
+use crate::DB_VERSION;
 use email_parser::EmailParser;
-
-const DB_VERSION: u32 = 1;
 
 // sync import used by sync process
 pub fn import(args: ImportArgs) -> Result<()> {

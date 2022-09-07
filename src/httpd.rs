@@ -23,10 +23,10 @@ mod login;
 mod state_data;
 mod user;
 
-use crate::db::init_db;
 use crate::httpd::admin::{admin_dash, admin_db_url, admin_passwd};
 use crate::httpd::login::{admin_login_form, login_form, login_handler};
 use crate::httpd::user::user_dash;
+use db::init_db;
 use state_data::{SharedData, StateData};
 
 pub async fn serve(args: ServeArgs) -> Result<()> {
@@ -85,7 +85,8 @@ pub async fn serve(args: ServeArgs) -> Result<()> {
     let shared_data = StateData::new(SharedData {
         db_conn: pool,
         config,
-        task_list: Vec::new(),
+        // task_list: Vec::new(),
+        user_id: None,
     });
 
     let private_key = rand::thread_rng().gen::<[u8; 32]>();

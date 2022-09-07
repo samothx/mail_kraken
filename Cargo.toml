@@ -10,15 +10,15 @@ name  = "import"
 test = false
 bench = false
 
-[[bin]]
-name  = "mysql_test"
-test = true
-bench = false
+# [[bin]]
+# name  = "mysql_test"
+# test = true
+# bench = false
 
-#[[bin]]
-#name  = "serve"
-#test = false
-#bench = false
+[[bin]]
+name  = "serve"
+test = false
+bench = false
 
 [dependencies]
 

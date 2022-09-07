@@ -1,5 +1,5 @@
-use anyhow::{anyhow, Context, Result};
-use log::{error, trace, warn};
+use anyhow::{anyhow, Result};
+use log::{trace, warn};
 use std::io::Read;
 use std::process::ChildStdout;
 

@@ -106,7 +106,7 @@ pub fn process_record(
 
     if (received & RECV_HDRS) == RECV_HDRS {
         for (name, value) in buffers.hdr.iter() {
-            match name.as_str() {
+            match name.to_lowercase().as_str() {
                 HDR_NAME_RECV => {
                     received |= RECV_RECEIVED;
                 }
@@ -382,12 +382,12 @@ impl Buffers {
     }
 }
 
-const HDR_NAME_FROM: &str = "From";
-const HDR_NAME_TO: &str = "To";
-const HDR_NAME_CC: &str = "CC";
-const HDR_NAME_BCC: &str = "BCC";
-const HDR_NAME_SUBJ: &str = "Subject";
-const HDR_NAME_RECV: &str = "Received";
+const HDR_NAME_FROM: &str = "from";
+const HDR_NAME_TO: &str = "to";
+const HDR_NAME_CC: &str = "cc";
+const HDR_NAME_BCC: &str = "bcc";
+const HDR_NAME_SUBJ: &str = "subject";
+const HDR_NAME_RECV: &str = "received";
 
 const RECV_UID: u32 = 0x1;
 const RECV_GUID: u32 = 0x2;

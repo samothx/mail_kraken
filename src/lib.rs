@@ -7,11 +7,14 @@ mod cmd_args;
 pub use cmd_args::{ImportArgs, ServeArgs};
 mod import;
 pub use import::import;
-// mod httpd;
-// pub use httpd::serve;
+mod httpd;
+pub use httpd::serve;
 
 use crate::config::Config;
 use crate::libc_util::{strerror, UserInfo};
 use crate::util::switch_to_user;
 
+type UserId = u64;
+
+const DB_VERSION: u32 = 1;
 const BCRYPT_COST: u32 = 8;

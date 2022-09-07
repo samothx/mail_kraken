@@ -119,7 +119,7 @@ pub async fn login_handler(
         if authenticate(payload.login.as_str(), payload.passwd.as_str()).await? {
             id.remember(payload.login.clone());
 
-            let bg_task = init_user(
+            let user_id = init_user(
                 state
                     .get_state()
                     .map_err(|e| ApiError::Internal(Some(e.to_string())))?
@@ -131,17 +131,10 @@ pub async fn login_handler(
             )
             .await?;
 
-            if let Some(task) = bg_task {
-                state
-                    .get_mut_state()
-                    .map_err(|e| ApiError::Internal(Some(e.to_string())))?
-                    .task_list
-                    .push(task);
-            }
-
-            //if let Some(bg_task) = bg_task {
-            //    bg_task.
-            //}
+            state
+                .get_mut_state()
+                .map_err(|e| ApiError::Internal(Some(e.to_string())))?
+                .user_id = Some(user_id);
 
             Ok(HttpResponse::Ok().body(()))
         } else {
