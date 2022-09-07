@@ -1,5 +1,5 @@
-use anyhow::{anyhow, Result};
-use log::trace;
+use anyhow::{anyhow, Context, Result};
+use log::{error, trace, warn};
 use std::io::Read;
 use std::process::ChildStdout;
 
@@ -119,11 +119,31 @@ impl StdoutLineReader {
             if self.rfc2047_buf.is_some() {
                 Ok(Some(self.rfc2047_buf.as_deref().unwrap()))
             } else {
-                self.rfc2047_buf = Some(rfc2047_decoder::decode(&self.line_buf[..])?);
+                Some(match rfc2047_decoder::decode(&self.line_buf[..]) {
+                    Ok(res) => res,
+                    Err(e) => {
+                        let res = String::from_utf8_lossy(&self.line_buf[..]);
+                        warn!(
+                            "next_line_rfc2047 rfc2047_decoder::decode failed {:?} on [{}]",
+                            e, res
+                        );
+                        res.to_string()
+                    }
+                });
                 Ok(self.rfc2047_buf.as_deref())
             }
         } else if self.next_line_raw()?.is_some() {
-            self.rfc2047_buf = Some(rfc2047_decoder::decode(&self.line_buf[..])?);
+            self.rfc2047_buf = Some(match rfc2047_decoder::decode(&self.line_buf[..]) {
+                Ok(res) => res,
+                Err(e) => {
+                    let res = String::from_utf8_lossy(&self.line_buf[..]);
+                    warn!(
+                        "next_line_rfc2047 rfc2047_decoder::decode failed {:?} on [{}]",
+                        e, res
+                    );
+                    res.to_string()
+                }
+            });
             Ok(self.rfc2047_buf.as_deref())
         } else {
             Ok(None)
