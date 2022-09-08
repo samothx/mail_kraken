@@ -129,6 +129,12 @@ pub fn process_record(
                     {
                         if let Ok(score) = captures[2].parse() {
                             if let Ok(required) = captures[3].parse() {
+                                debug!(
+                                    "spam: ({},{},{})",
+                                    captures[1].eq_ignore_ascii_case("yes"),
+                                    score,
+                                    required
+                                );
                                 (
                                     Some(captures[1].eq_ignore_ascii_case("yes")),
                                     Some(score),
