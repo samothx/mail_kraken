@@ -133,11 +133,14 @@ pub fn process_record(
                         };
                     }
                     HDR_NAME_REFERENCED => {
-                        let id_list = value.trim().trim_start_matches('<').trim_end_matches('>');
-                        if !id_list.is_empty() {
-                            id_list
-                                .split(',')
-                                .for_each(|part| buffers.references.push(part.to_owned()));
+                        if !value.is_empty() {
+                            value.split_whitespace().for_each(|part| {
+                                buffers.references.push(
+                                    part.trim_start_matches('<')
+                                        .trim_end_matches('>')
+                                        .to_owned(),
+                                )
+                            });
                         }
                     }
                     HDR_NAME_RECV_SPF => {
