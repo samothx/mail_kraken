@@ -622,7 +622,7 @@ const HDR_NAME_RECV: &str = "received";
 const HDR_NAME_RECV_SPF: &str = "received-spf";
 const HDR_NAME_X_SPAM_STATUS: &str = "x-spam-status";
 const HDR_NAME_MSG_ID: &str = "message-id";
-const HDR_NAME_REFERENCED: &str = "referenced";
+const HDR_NAME_REFERENCED: &str = "references";
 
 const RECV_UID: u32 = 0x1;
 const RECV_GUID: u32 = 0x2;

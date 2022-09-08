@@ -126,7 +126,9 @@ pub fn import(args: ImportArgs) -> Result<()> {
                     msg_count,
                     insert_count,
                     duration.num_seconds(),
-                    insert_count * 1000 / duration.num_milliseconds() as usize
+                    f64::from(
+                        (insert_count * 1000000 / duration.num_milliseconds() as usize) as u32
+                    ) / 1000.0
                 );
 
                 if (now - last_flush).num_seconds() > 20 {
