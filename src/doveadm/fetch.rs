@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Context, Result};
 use log::debug;
+use std::fs::File;
 use std::process::{Child, Command, ExitStatus, Stdio};
 
 use super::DOVEADM_CMD;
@@ -27,7 +28,7 @@ pub struct Fetch {
 }
 
 impl Fetch {
-    pub fn new(params: FetchParams) -> Result<Fetch> {
+    pub fn new(params: FetchParams, copy_to: Option<File>) -> Result<Fetch> {
         debug!(
             "DoveadmFetch::new: spawning command: {} params: {:?}",
             DOVEADM_CMD,
@@ -81,7 +82,7 @@ impl Fetch {
         Ok(Fetch {
             // params,
             child,
-            stdout: StdoutLineReader::new(stdout),
+            stdout: StdoutLineReader::new(stdout, copy_to),
             parsers,
         })
     }

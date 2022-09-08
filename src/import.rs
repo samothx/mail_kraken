@@ -4,6 +4,7 @@ use anyhow::{anyhow, Context, Result};
 use log::{error, info};
 use mod_logger::Logger;
 use mysql::{prelude::Queryable, Pool};
+use std::fs::File;
 
 use nix::unistd::getuid;
 use regex::Regex;
@@ -66,7 +67,15 @@ pub fn import(args: ImportArgs) -> Result<()> {
         .add_field(ImapField::DateSaved)
         .add_field(ImapField::DateReceived)
         .add_search_param(SearchParam::All);
-    let mut fetch_cmd = Fetch::new(fetch_params)?;
+
+    let mut fetch_cmd = Fetch::new(
+        fetch_params,
+        if let Some(copy_to) = args.copy_to {
+            Some(File::open(copy_to)?)
+        } else {
+            None
+        },
+    )?;
 
     // Yes, score=10.7 required=7.0 tests=BAYES_50,DIET_1,HTML_MESSAGE,
     // 	HTML_OFF_PAGE,RCVD_IN_SBL_CSS,RDNS_NONE,T_REMOTE_IMAGE,URIBL_ABUSE_SURBL,

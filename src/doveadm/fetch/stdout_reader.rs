@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use log::{trace, warn};
-use std::io::Read;
+use std::fs::File;
+use std::io::{Read, Write};
 use std::process::ChildStdout;
 
 const BUFF_SIZE: usize = 1024 * 1024;
@@ -17,9 +18,10 @@ pub struct StdoutLineReader {
     line_count: usize,
     read_pos: usize,
     end_pos: usize,
+    copy_to: Option<File>,
 }
 impl StdoutLineReader {
-    pub fn new(stream: ChildStdout) -> StdoutLineReader {
+    pub fn new(stream: ChildStdout, copy_to: Option<File>) -> StdoutLineReader {
         StdoutLineReader {
             stream,
             read_pos: BUFF_SIZE,
@@ -31,6 +33,7 @@ impl StdoutLineReader {
             line_buf: Vec::with_capacity(STR_BUFF_SIZE),
             str_buf: None,
             rfc2047_buf: None,
+            copy_to,
         }
     }
 
@@ -105,6 +108,9 @@ impl StdoutLineReader {
                     } else {
                         trace!("next_line_raw: buffer refilled to {}", self.end_pos);
                         self.read_pos = 0;
+                        if let Some(copy_to) = self.copy_to.as_mut() {
+                            copy_to.write(&self.buffer[..self.end_pos])?;
+                        }
                     }
                 }
             }

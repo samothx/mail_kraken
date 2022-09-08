@@ -1,4 +1,5 @@
 use mod_logger::Level;
+use std::path::PathBuf;
 use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
@@ -48,4 +49,13 @@ pub struct ImportArgs {
         help = "The email address/user to import"
     )]
     pub user: String,
+
+    #[structopt(
+        short,
+        long,
+        value_name = "COPY_TO",
+        help = "Debug copy of doveadm fetch output",
+        parse(from_os_str)
+    )]
+    pub copy_to: Option<PathBuf>,
 }
