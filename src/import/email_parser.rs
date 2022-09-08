@@ -21,9 +21,8 @@ impl EmailParser {
         }
     }
 
-    pub fn parse(&mut self, emails: &str) -> Vec<(String, Option<String>, bool)> {
+    pub fn parse(&mut self, emails: &str, res: &mut Vec<(String, Option<String>, bool)>) {
         // Logger::set_default_level(Level::Debug);
-        let mut res = Vec::new();
         let mut state = State::Init;
 
         for ch in emails.chars() {
@@ -78,6 +77,13 @@ impl EmailParser {
                                 } else {
                                     Some(trimmed_name.to_owned())
                                 },
+                                if self.email_regex.is_match(self.email.as_ref()) {
+                                    true
+                                } else {
+                                    warn!("parse: invalid email: {}", self.email);
+                                    warn!("parse: parsed from: {}", emails);
+                                    false
+                                },
                             ));
                         }
                         self.email.clear();
@@ -96,6 +102,13 @@ impl EmailParser {
                             } else {
                                 Some(self.name.trim().to_owned())
                             },
+                            if self.email_regex.is_match(self.email.as_ref()) {
+                                true
+                            } else {
+                                warn!("parse: invalid email: {}", self.email.as_str());
+                                warn!("parse: parsed from: {}", emails);
+                                false
+                            },
                         ));
                         self.email.clear();
                         self.name.clear();
@@ -111,6 +124,13 @@ impl EmailParser {
                                 None
                             } else {
                                 Some(trimmed_name.to_owned())
+                            },
+                            if self.email_regex.is_match(self.email.as_ref()) {
+                                true
+                            } else {
+                                warn!("parse: invalid email: {}", self.email.as_str());
+                                warn!("parse: parsed from: {}", emails);
+                                false
                             },
                         ));
                         self.email.clear();
@@ -175,23 +195,17 @@ impl EmailParser {
                 } else {
                     Some(self.name.clone())
                 },
+                if self.email_regex.is_match(self.email.as_ref()) {
+                    true
+                } else {
+                    warn!("parse: invalid email: {}", self.email.as_str());
+                    warn!("parse: parsed from: {}", emails);
+                    false
+                },
             ));
             self.name.clear();
             self.email.clear();
         }
-        // debug!("parse: state: {:?} res: {:?}", state, res);
-
-        let mut res_final = Vec::with_capacity(res.len());
-        for (email, name) in res {
-            if self.email_regex.is_match(email.as_ref()) {
-                res_final.push((email, name, true))
-            } else {
-                warn!("parse: invalid email: {}", email);
-                warn!("parse: parsed from: {}", emails);
-                res_final.push((email, name, false))
-            }
-        }
-        res_final
     }
 }
 #[derive(Debug, PartialEq)]
@@ -213,45 +227,46 @@ mod tests {
 
     #[test]
     fn parse_email_simple_email1() {
+        let mut res = Vec::new();
         let mut parser = EmailParser::new();
-        assert_eq!(
-            parser.parse("info@etnur.net"),
-            vec![("info@etnur.net".to_owned(), None, true)]
-        );
+        parser.parse("info@etnur.net", &mut res);
+        assert_eq!(res, vec![("info@etnur.net".to_owned(), None, true)]);
     }
 
     #[test]
     fn parse_email_simple_email2() {
+        let mut res = Vec::new();
         let mut parser = EmailParser::new();
-        assert_eq!(
-            parser.parse("name@domain.tld,"),
-            vec![("name@domain.tld".to_owned(), None, true)]
-        );
+        parser.parse("name@domain.tld,", &mut res);
+        assert_eq!(res, vec![("name@domain.tld".to_owned(), None, true)]);
     }
 
     #[test]
     fn parse_email_simple_email3() {
+        let mut res = Vec::new();
         let mut parser = EmailParser::new();
-        assert_eq!(
-            parser.parse("name@domain.tld,\n"),
-            vec![("name@domain.tld".to_owned(), None, true)]
-        );
+        parser.parse("name@domain.tld,\n", &mut res);
+        assert_eq!(res, vec![("name@domain.tld".to_owned(), None, true)]);
     }
 
     #[test]
     fn parse_email_simple_email4() {
+        let mut res = Vec::new();
         let mut parser = EmailParser::new();
-        assert_eq!(
-            parser.parse("<name@domain.tld>,\n"),
-            vec![("name@domain.tld".to_owned(), None, true)]
-        );
+        parser.parse("<name@domain.tld>,\n", &mut res);
+        assert_eq!(res, vec![("name@domain.tld".to_owned(), None, true)]);
     }
 
     #[test]
     fn parse_email_simple_email5() {
+        let mut res = Vec::new();
         let mut parser = EmailParser::new();
+        parser.parse(
+            r#""James Wei \(via Dropbox\)" <no-reply@dropbox.com>"#,
+            &mut res,
+        );
         assert_eq!(
-            parser.parse(r#""James Wei \(via Dropbox\)" <no-reply@dropbox.com>"#),
+            res,
             vec![(
                 "no-reply@dropbox.com".to_owned(),
                 Some(r#"James Wei (via Dropbox)"#.to_owned()),
@@ -262,9 +277,11 @@ mod tests {
 
     #[test]
     fn parse_email_simple_email6() {
+        let mut res = Vec::new();
         let mut parser = EmailParser::new();
+        parser.parse(r#""Bob at /\\/\\etBob" <bob@metbob.com>"#, &mut res);
         assert_eq!(
-            parser.parse(r#""Bob at /\\/\\etBob" <bob@metbob.com>"#),
+            res,
             vec![(
                 "bob@metbob.com".to_owned(),
                 Some(r#"Bob at /\/\etBob"#.to_owned()),
@@ -275,15 +292,19 @@ mod tests {
 
     #[test]
     fn parse_email_simple_email7() {
+        let mut res = Vec::new();
         let mut parser = EmailParser::new();
-        assert_eq!(parser.parse(r#"Root User <>"#), vec![]);
+        parser.parse(r#"Root User <>"#, &mut res);
+        assert_eq!(res, vec![]);
     }
 
     #[test]
     fn parse_email_simple_email_with_name1() {
+        let mut res = Vec::new();
         let mut parser = EmailParser::new();
+        parser.parse(r#"kurt mustermann <name@domain.tld>"#, &mut res);
         assert_eq!(
-            parser.parse(r#"kurt mustermann <name@domain.tld>"#),
+            res,
             vec![(
                 "name@domain.tld".to_owned(),
                 Some("kurt mustermann".to_owned()),
@@ -294,9 +315,14 @@ mod tests {
 
     #[test]
     fn parse_email_simple_email_with_name2() {
+        let mut res = Vec::new();
         let mut parser = EmailParser::new();
+        parser.parse(
+            r#""Kauffmann, Ole" <Ole.Kauffmann@ipdynamics.de>"#,
+            &mut res,
+        );
         assert_eq!(
-            parser.parse(r#""Kauffmann, Ole" <Ole.Kauffmann@ipdynamics.de>"#),
+            res,
             vec![(
                 "ole.kauffmann@ipdynamics.de".to_owned(),
                 Some("Kauffmann, Ole".to_owned()),
@@ -307,9 +333,14 @@ mod tests {
 
     #[test]
     fn parse_email_simple_email_with_name3() {
+        let mut res = Vec::new();
         let mut parser = EmailParser::new();
+        parser.parse(
+            r#""\"Firmian\" Steinfath Mathias" <firmian@cenci.de>"#,
+            &mut res,
+        );
         assert_eq!(
-            parser.parse(r#""\"Firmian\" Steinfath Mathias" <firmian@cenci.de>"#),
+            res,
             vec![(
                 "firmian@cenci.de".to_owned(),
                 Some("\"Firmian\" Steinfath Mathias".to_owned()),
@@ -320,9 +351,11 @@ mod tests {
 
     #[test]
     fn parse_email_simple_email_with_name4() {
+        let mut res = Vec::new();
         let mut parser = EmailParser::new();
+        parser.parse(r#"Stölken, Christian <christian@domain.de>"#, &mut res);
         assert_eq!(
-            parser.parse(r#"Stölken, Christian <christian@domain.de>"#),
+            res,
             vec![(
                 "christian@domain.de".to_owned(),
                 Some("Stölken, Christian".to_owned()),
@@ -333,9 +366,11 @@ mod tests {
 
     #[test]
     fn parse_email_simple_email_list1() {
+        let mut res = Vec::new();
         let mut parser = EmailParser::new();
+        parser.parse("name1@domain1.tld1, name2@domain2.tld2", &mut res);
         assert_eq!(
-            parser.parse("name1@domain1.tld1, name2@domain2.tld2"),
+            res,
             vec![
                 ("name1@domain1.tld1".to_owned(), None, true),
                 ("name2@domain2.tld2".to_owned(), None, true)
@@ -345,9 +380,11 @@ mod tests {
 
     #[test]
     fn parse_email_simple_email_list2() {
+        let mut res = Vec::new();
         let mut parser = EmailParser::new();
+        parser.parse("name1@domain1.tld1,\n name2@domain2.tld2,\n ", &mut res);
         assert_eq!(
-            parser.parse("name1@domain1.tld1,\n name2@domain2.tld2,\n "),
+            res,
             vec![
                 ("name1@domain1.tld1".to_owned(), None, true),
                 ("name2@domain2.tld2".to_owned(), None, true)
@@ -357,13 +394,15 @@ mod tests {
 
     #[test]
     fn parse_email_simple_email_list3() {
+        let mut res = Vec::new();
         const EMAILS: &str = r#"Ralf Dreyer <ralf-dreyer@web.de>, Olaf Völker
     <olaf@voelker-wl.de>, "\"Firmian\" Steinfath Mathias" <firmian@cenci.de>,
     Sascha Geering <sashgeer@aol.com>"#;
 
         let mut parser = EmailParser::new();
+        parser.parse(EMAILS, &mut res);
         assert_eq!(
-            parser.parse(EMAILS),
+            res,
             vec![
                 (
                     "ralf-dreyer@web.de".to_owned(),
@@ -391,6 +430,7 @@ mod tests {
 
     #[test]
     fn parse_email_complex_email_list1() {
+        let mut res = Vec::new();
         const EMAILS: &str = r#""\"Firmian\" Steinfath Mathias" <firmian@cenci.de>,
     "Andreas + Angela Horn" <aahorn@gmx.de>,
     "Benedict Dudda" <BenedictDudda@gmx.de>,
@@ -430,12 +470,12 @@ mod tests {
     "Yvonne und Tom Kanthak" <blacksilver1@t-online.de>"#;
 
         let mut parser = EmailParser::new();
-        let res_list = parser.parse(EMAILS);
-        res_list.iter().for_each(|(email, name, valid)| {
+        parser.parse(EMAILS, &mut res);
+        res.iter().for_each(|(email, name, valid)| {
             if !valid {
                 panic!("invalid: {}, {:?}", email.as_str(), name)
             }
         });
-        assert_eq!(res_list.len(), 37);
+        assert_eq!(res.len(), 37);
     }
 }

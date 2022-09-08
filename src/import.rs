@@ -68,6 +68,10 @@ pub fn import(args: ImportArgs) -> Result<()> {
         .add_search_param(SearchParam::All);
     let mut fetch_cmd = Fetch::new(fetch_params)?;
 
+    // Yes, score=10.7 required=7.0 tests=BAYES_50,DIET_1,HTML_MESSAGE,
+    // 	HTML_OFF_PAGE,RCVD_IN_SBL_CSS,RDNS_NONE,T_REMOTE_IMAGE,URIBL_ABUSE_SURBL,
+    // 	URIBL_BLOCKED,URIBL_DBL_SPAM autolearn=no autolearn_force=no version=3.4.0
+    let spam_score_regex = Regex::new(r#"^(Yes|No), score=(\d+\.\d+) required=(\d+\.\d+) "#)?;
     let date_time_tz_regex = Regex::new(r"^(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s\(([^)]+)\)$")?;
     let mut email_db = EmailDb::new();
     let mut email_parser = EmailParser::new();
@@ -92,6 +96,7 @@ pub fn import(args: ImportArgs) -> Result<()> {
                 user_id,
                 record,
                 &mut buffers,
+                &spam_score_regex,
                 &date_time_tz_regex,
                 &mut email_parser,
                 &mut email_db,

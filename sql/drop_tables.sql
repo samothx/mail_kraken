@@ -1,4 +1,4 @@
-DROP VIEW IF EXISTS `whitelist`;
+# DROP VIEW IF EXISTS `whitelist`;
 DROP TABLE IF EXISTS `imap_flag`;
 DROP TABLE IF EXISTS `header`;
 DROP TABLE IF EXISTS `mail_to`;
@@ -7,6 +7,7 @@ DROP TABLE IF EXISTS `mail_bc`;
 DROP TABLE IF EXISTS `mail_bcc`;
 DROP TABLE IF EXISTS `mail_stats`;
 DROP TABLE IF EXISTS `mail_name`;
+DROP TABLE IF EXISTS `referenced`;
 DROP TABLE IF EXISTS `record`;
 DROP TABLE IF EXISTS `email`;
 DROP TABLE IF EXISTS `user`;

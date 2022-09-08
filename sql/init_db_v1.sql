@@ -32,6 +32,11 @@ CREATE TABLE `record` (
     `mail_subj` TEXT,
     `outbound` BOOL NOT NULL,
     `mail_from` bigint unsigned,
+    `spf` bool,
+    `is_spam` bool,
+    `spam_score` DECIMAL(3,3),
+    `spam_req` DECIMAL(3,3),
+    `msg_id` VARCHAR(1024),
     UNIQUE (user_id,uid,mailbox),
     # UNIQUE (guid),
     PRIMARY KEY (`id`),
@@ -43,6 +48,17 @@ CREATE TABLE `record` (
         FOREIGN KEY (mail_from) REFERENCES email (id)
             ON DELETE CASCADE
             ON UPDATE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `referenced` (
+    `record_id` bigint unsigned NOT NULL,
+    `seq` int unsigned NOT NULL,
+    `msg_id` VARCHAR(1024),
+    PRIMARY KEY (record_id, seq),
+    CONSTRAINT `fk_references_record_id`
+       FOREIGN KEY (record_id) REFERENCES record (id)
+           ON DELETE CASCADE
+           ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE `mail_to` (

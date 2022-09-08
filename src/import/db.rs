@@ -5,6 +5,7 @@ use anyhow::{anyhow, Context, Result};
 use log::{debug, trace, warn};
 use mysql::{params, prelude::Queryable, Conn};
 use regex::Regex;
+use std::process::id;
 
 type UserId = u64;
 
@@ -40,6 +41,7 @@ pub fn process_record(
     user_id: u64,
     record: FetchRecord,
     buffers: &mut Buffers,
+    spam_score_regex: &Regex,
     date_time_tz_regex: &Regex,
     email_parser: &mut EmailParser,
     email_db: &mut EmailDb,
@@ -96,31 +98,90 @@ pub fn process_record(
                 HDR_NAME_RECV => {
                     received |= RECV_RECEIVED;
                 }
+                HDR_NAME_MSG_ID => {
+                    let msg_id = value.trim().trim_start_matches('<').trim_end_matches('>');
+
+                    buffers.msg_id = if msg_id.is_empty() {
+                        None
+                    } else {
+                        Some(msg_id.to_owned())
+                    };
+                }
+                HDR_NAME_REFERENCED => {
+                    let id_list = value.trim().trim_start_matches('<').trim_end_matches('>');
+                    if !id_list.is_empty() {
+                        id_list
+                            .split(',')
+                            .for_each(|part| buffers.references.push(part.to_owned()));
+                    }
+                }
+                HDR_NAME_RECV_SPF => {
+                    buffers.spf = if value.to_lowercase().starts_with("pass") {
+                        Some(true)
+                    } else if value.to_lowercase().starts_with("none") {
+                        Some(false)
+                    } else {
+                        None
+                    }
+                }
+                HDR_NAME_X_SPAM_STATUS => {
+                    buffers.spam = if let Some(captures) = spam_score_regex.captures(value.as_str())
+                    {
+                        if let Ok(score) = captures[2].parse() {
+                            if let Ok(required) = captures[3].parse() {
+                                (
+                                    Some(captures[1].eq_ignore_ascii_case("yes")),
+                                    Some(score),
+                                    Some(required),
+                                )
+                            } else {
+                                warn!(
+                                    "process_record: failed to parse required capture [{}] to f32",
+                                    &captures[3]
+                                );
+                                (
+                                    Some(captures[1].eq_ignore_ascii_case("yes")),
+                                    Some(score),
+                                    None,
+                                )
+                            }
+                        } else {
+                            warn!(
+                                "process_record: failed to parse score capture [{}] to f32",
+                                &captures[2]
+                            );
+                            (Some(captures[1].eq_ignore_ascii_case("yes")), None, None)
+                        }
+                    } else {
+                        (None, None, None)
+                    }
+                }
                 HDR_NAME_TO => {
-                    buffers.to = email_parser.parse(value.as_str());
+                    email_parser.parse(value.as_str(), &mut buffers.to);
                     received |= RECV_TO;
                 }
                 HDR_NAME_FROM => {
-                    buffers.from = email_parser.parse(value.as_str());
+                    email_parser.parse(value.as_str(), &mut buffers.from);
                     received |= RECV_FROM;
                 }
                 HDR_NAME_CC => {
-                    buffers.cc = email_parser.parse(value.as_str());
+                    email_parser.parse(value.as_str(), &mut buffers.cc);
                     received |= RECV_CC;
                 }
                 HDR_NAME_BCC => {
-                    buffers.bcc = email_parser.parse(value.as_str());
+                    email_parser.parse(value.as_str(), &mut buffers.bcc);
                     received |= RECV_BCC;
                 }
                 HDR_NAME_SUBJ => {
                     buffers.subj = value.to_owned();
                     received |= RECV_SUBJ;
                 }
+
                 _ => (),
             };
-            if (received & RECV_HEADERS_ALL) == RECV_HEADERS_ALL {
+            /* if (received & RECV_HEADERS_ALL) == RECV_HEADERS_ALL {
                 break;
-            }
+            }*/
         }
         if (received & RECV_FROM) != RECV_FROM {
             let mut header_names = String::new();
@@ -135,6 +196,7 @@ pub fn process_record(
     }
 
     if (received & RECV_REQUIRED) == RECV_REQUIRED {
+        // extract date/time & timezone from date sent
         let (date_time_sent, offset) =
             if let Some(captures) = date_time_tz_regex.captures(buffers.date_sent.as_str()) {
                 (
@@ -166,7 +228,11 @@ pub fn process_record(
             offset
         );
 
+        // its an outbound message if there are no received headers
+        // might be an unsent message too in drafts or trash
         let outbound = (received & RECV_RECEIVED) != RECV_RECEIVED;
+
+        // extract and save first email-from if valid
         let email_from = if let Some((email, name, valid)) = buffers.from.get(0) {
             if *valid {
                 Some(email_db.add_email(
@@ -190,6 +256,7 @@ pub fn process_record(
             None
         };
 
+        // insert record
         db_conn.exec_drop(ST_REC_INSERT,params! {
             "user_id"=>user_id,
             "uid"=>buffers.uid.as_str(),
@@ -202,7 +269,13 @@ pub fn process_record(
             "size"=>buffers.size_physical,
             "subj"=>buffers.subj.as_str(),
             "outbound"=>(received & RECV_RECEIVED) != RECV_RECEIVED,
-                "mail_from" => email_from}).with_context(|| "failed to insert record".to_owned())
+            "mail_from" => email_from,
+            "spf"=>buffers.spf,
+            "is_spam"=>buffers.spam.0,
+            "spam_score"=>buffers.spam.1,
+            "spam_req"=>buffers.spam.2,
+            "msg_id"=>buffers.msg_id.as_ref(),
+        }).with_context(|| "failed to insert record".to_owned())
             .with_context(|| "failed to insert record".to_owned())?;
 
         let record_id = db_conn.last_insert_id();
@@ -220,7 +293,9 @@ pub fn process_record(
                 .with_context(|| "failed to insert imap_flags".to_owned())?;
             debug!("process_record: flags inserted");
         }
+
         if !buffers.hdr.is_empty() {
+            // insert headers
             db_conn
                 .exec_batch(
                     ST_HDR_INSERT,
@@ -229,7 +304,7 @@ pub fn process_record(
                         .iter()
                         .filter(|(name, _value)| {
                             !matches!(
-                                name.as_str(),
+                                name.to_lowercase().as_str(),
                                 HDR_NAME_FROM
                                     | HDR_NAME_TO
                                     | HDR_NAME_SUBJ
@@ -247,7 +322,9 @@ pub fn process_record(
                 )
                 .with_context(|| "process_record: failed to insert headers".to_owned())?;
         }
+
         if !buffers.to.is_empty() {
+            // insert To email addresses & names if valid
             for (seq, (email, name, valid)) in buffers.to.iter().enumerate() {
                 if *valid {
                     let email_id = email_db.add_email(
@@ -272,6 +349,7 @@ pub fn process_record(
             }
         }
         if !buffers.cc.is_empty() {
+            // insert Cc email addresses & names if valid
             for (seq, (email, name, valid)) in buffers.cc.iter().enumerate() {
                 if *valid {
                     let email_id = email_db.add_email(
@@ -296,6 +374,7 @@ pub fn process_record(
             }
         }
         if !buffers.bcc.is_empty() {
+            // insert Bcc email addresses & names if valid
             for (seq, (email, name, valid)) in buffers.bcc.iter().enumerate() {
                 if *valid {
                     let email_id = email_db.add_email(
@@ -317,6 +396,18 @@ pub fn process_record(
                         )
                         .with_context(|| "process_record: failed to insert mail_bcc".to_owned())?;
                 }
+            }
+        }
+
+        if !buffers.references.is_empty() {
+            // insert Referenced message ids
+            for (seq, msg_id) in buffers.references.iter().enumerate() {
+                db_conn
+                    .exec_drop(
+                        ST_REF_INSERT,
+                        params! { "record_id"=> record_id, "seq"=>seq,  "msg_id"=> msg_id },
+                    )
+                    .with_context(|| "process_record: failed to insert referenced".to_owned())?;
             }
         }
 
@@ -345,26 +436,55 @@ pub struct Buffers {
     cc: Vec<(String, Option<String>, bool)>,
     bcc: Vec<(String, Option<String>, bool)>,
     subj: String,
+    spf: Option<bool>,
+    spam: (Option<bool>, Option<f32>, Option<f32>),
+    msg_id: Option<String>,
+    references: Vec<String>,
 }
 
 impl Buffers {
     pub fn new() -> Buffers {
         Buffers {
-            guid: String::new(),
-            uid: String::new(),
-            mailbox: String::new(),
-            flags: Vec::new(),
-            hdr: Vec::new(),
-            date_received: String::new(),
-            date_saved: String::new(),
-            date_sent: String::new(),
+            guid: String::with_capacity(256),
+            uid: String::with_capacity(256),
+            mailbox: String::with_capacity(256),
+            flags: Vec::with_capacity(32),
+            hdr: Vec::with_capacity(1024),
+            date_received: String::with_capacity(100),
+            date_saved: String::with_capacity(100),
+            date_sent: String::with_capacity(100),
             size_physical: 0,
-            to: Vec::new(),
+            to: Vec::with_capacity(32),
             from: Vec::new(),
-            cc: Vec::new(),
-            bcc: Vec::new(),
-            subj: String::new(),
+            cc: Vec::with_capacity(100),
+            bcc: Vec::with_capacity(100),
+            subj: String::with_capacity(1024),
+            spf: None,
+            spam: (None, None, None),
+            msg_id: None,
+            references: Vec::with_capacity(32),
         }
+    }
+
+    pub fn clear(&mut self) {
+        self.guid.clear();
+        self.uid.clear();
+        self.mailbox.clear();
+        self.flags.clear();
+        self.hdr.clear();
+        self.date_received.clear();
+        self.date_saved.clear();
+        self.date_sent.clear();
+        self.size_physical = 0;
+        self.to.clear();
+        self.from.clear();
+        self.cc.clear();
+        self.bcc.clear();
+        self.subj.clear();
+        self.spf = None;
+        self.spam = (None, None, None);
+        self.msg_id = None;
+        self.references.clear();
     }
 }
 
@@ -374,6 +494,10 @@ const HDR_NAME_CC: &str = "cc";
 const HDR_NAME_BCC: &str = "bcc";
 const HDR_NAME_SUBJ: &str = "subject";
 const HDR_NAME_RECV: &str = "received";
+const HDR_NAME_RECV_SPF: &str = "received-spf";
+const HDR_NAME_X_SPAM_STATUS: &str = "x-spam-status";
+const HDR_NAME_MSG_ID: &str = "message-id";
+const HDR_NAME_REFERENCED: &str = "referenced";
 
 const RECV_UID: u32 = 0x1;
 const RECV_GUID: u32 = 0x2;
@@ -404,8 +528,10 @@ const RECV_REQUIRED: u32 = RECV_UID
     | RECV_FLAGS
     | RECV_HDRS;
 
-const ST_REC_INSERT: &str = r#"insert into record (user_id,uid,guid,mailbox,dt_sent,tz_sent,dt_recv,dt_saved,size,mail_subj,outbound, mail_from)
-    values(:user_id,:uid,:guid,:mailbox,:dt_sent,:tz_sent,:dt_recv,:dt_saved,:size,:subj,:outbound, :mail_from)"#;
+const ST_REC_INSERT: &str = r#"insert into record (user_id,uid,guid,mailbox,dt_sent,tz_sent,dt_recv,
+    dt_saved,size,mail_subj,outbound, mail_from, spf, is_spam, spam_score, spam_req, msg_id)
+    values(:user_id,:uid,:guid,:mailbox,:dt_sent,:tz_sent,:dt_recv,:dt_saved,:size,:subj,:outbound, 
+    :mail_from, :spf, :is_spam, :spam_score, :spam_req, :msg_id)"#;
 
 const ST_IF_INSERT: &str = r#"insert into imap_flag (record_id, name) values(:record_id,:name)"#;
 
@@ -420,3 +546,6 @@ const ST_MCC_INSERT: &str =
 
 const ST_MBCC_INSERT: &str =
     r#"insert into mail_bcc (record_id, email_id, seq) values(:record_id,:email_id,:seq)"#;
+
+const ST_REF_INSERT: &str =
+    r#"insert into referenced (record_id, seq, msg_id) values(:record_id,:seq,:msg_id)"#;
