@@ -7,6 +7,8 @@ use mysql::{params, prelude::Queryable, Conn};
 use regex::Regex;
 use std::process::id;
 
+const PROFILE: bool = true;
+
 type UserId = u64;
 
 pub fn init_user(db_conn: &mut Conn, user: &str) -> Result<(UserId, bool)> {
@@ -46,143 +48,175 @@ pub fn process_record(
     email_parser: &mut EmailParser,
     email_db: &mut EmailDb,
 ) -> Result<()> {
+    buffers.clear();
+
     let mut received = 0;
 
     // collect fetch fields, ensure all needed fields are there & store in Buffers
-    for item in record.into_iter() {
-        // debug!("process_record: got {:?}", item);
-        match item {
-            FetchFieldRes::Uid(value) => {
-                buffers.uid = value;
-                received |= RECV_UID;
+    {
+        let ts_start = if PROFILE {
+            Some(chrono::Local::now())
+        } else {
+            None
+        };
+
+        for item in record.into_iter() {
+            // debug!("process_record: got {:?}", item);
+            match item {
+                FetchFieldRes::Uid(value) => {
+                    buffers.uid = value;
+                    received |= RECV_UID;
+                }
+                FetchFieldRes::Guid(value) => {
+                    buffers.guid = value;
+                    received |= RECV_GUID;
+                }
+                FetchFieldRes::Mailbox(value) => {
+                    buffers.mailbox = value;
+                    received |= RECV_MAILBOX;
+                }
+                FetchFieldRes::Flags(value) => {
+                    buffers.flags = value;
+                    received |= RECV_FLAGS;
+                }
+                FetchFieldRes::DateReceived(value) => {
+                    buffers.date_received = value;
+                    received |= RECV_DATE_RECV
+                }
+                FetchFieldRes::DateSaved(value) => {
+                    buffers.date_saved = value;
+                    received |= RECV_DATE_SAVD;
+                }
+                FetchFieldRes::DateSent(value) => {
+                    buffers.date_sent = value;
+                    received |= RECV_DATE_SENT;
+                }
+                FetchFieldRes::SizePhysical(value) => {
+                    buffers.size_physical = value;
+                    received |= RECV_SIZE
+                }
+                FetchFieldRes::Hdr(val) => {
+                    buffers.hdr = val;
+                    received |= RECV_HDRS
+                }
             }
-            FetchFieldRes::Guid(value) => {
-                buffers.guid = value;
-                received |= RECV_GUID;
-            }
-            FetchFieldRes::Mailbox(value) => {
-                buffers.mailbox = value;
-                received |= RECV_MAILBOX;
-            }
-            FetchFieldRes::Flags(value) => {
-                buffers.flags = value;
-                received |= RECV_FLAGS;
-            }
-            FetchFieldRes::DateReceived(value) => {
-                buffers.date_received = value;
-                received |= RECV_DATE_RECV
-            }
-            FetchFieldRes::DateSaved(value) => {
-                buffers.date_saved = value;
-                received |= RECV_DATE_SAVD;
-            }
-            FetchFieldRes::DateSent(value) => {
-                buffers.date_sent = value;
-                received |= RECV_DATE_SENT;
-            }
-            FetchFieldRes::SizePhysical(value) => {
-                buffers.size_physical = value;
-                received |= RECV_SIZE
-            }
-            FetchFieldRes::Hdr(val) => {
-                buffers.hdr = val;
-                received |= RECV_HDRS
-            }
+        }
+        if PROFILE {
+            debug!(
+                "process_record: evaluating fetch field results took {} ms",
+                (chrono::Local::now() - ts_start.unwrap()).num_milliseconds()
+            );
         }
     }
 
     if (received & RECV_HDRS) == RECV_HDRS {
         // extract fields fom headers
-        for (name, value) in buffers.hdr.iter() {
-            match name.to_lowercase().as_str() {
-                HDR_NAME_RECV => {
-                    received |= RECV_RECEIVED;
-                }
-                HDR_NAME_MSG_ID => {
-                    let msg_id = value.trim().trim_start_matches('<').trim_end_matches('>');
+        {
+            let ts_start = if PROFILE {
+                Some(chrono::Local::now())
+            } else {
+                None
+            };
 
-                    buffers.msg_id = if msg_id.is_empty() {
-                        None
-                    } else {
-                        Some(msg_id.to_owned())
-                    };
-                }
-                HDR_NAME_REFERENCED => {
-                    let id_list = value.trim().trim_start_matches('<').trim_end_matches('>');
-                    if !id_list.is_empty() {
-                        id_list
-                            .split(',')
-                            .for_each(|part| buffers.references.push(part.to_owned()));
+            for (name, value) in buffers.hdr.iter() {
+                match name.to_lowercase().as_str() {
+                    HDR_NAME_RECV => {
+                        received |= RECV_RECEIVED;
                     }
-                }
-                HDR_NAME_RECV_SPF => {
-                    buffers.spf = if value.to_lowercase().starts_with("pass") {
-                        Some(true)
-                    } else if value.to_lowercase().starts_with("none") {
-                        Some(false)
-                    } else {
-                        None
+                    HDR_NAME_MSG_ID => {
+                        let msg_id = value.trim().trim_start_matches('<').trim_end_matches('>');
+
+                        buffers.msg_id = if msg_id.is_empty() {
+                            None
+                        } else {
+                            Some(msg_id.to_owned())
+                        };
                     }
-                }
-                HDR_NAME_X_SPAM_STATUS => {
-                    buffers.spam = if let Some(captures) = spam_score_regex.captures(value.as_str())
-                    {
-                        if let Ok(score) = captures[2].parse() {
-                            if let Ok(required) = captures[3].parse() {
-                                (
-                                    Some(captures[1].eq_ignore_ascii_case("yes")),
-                                    Some(score),
-                                    Some(required),
-                                )
-                            } else {
-                                warn!(
+                    HDR_NAME_REFERENCED => {
+                        let id_list = value.trim().trim_start_matches('<').trim_end_matches('>');
+                        if !id_list.is_empty() {
+                            id_list
+                                .split(',')
+                                .for_each(|part| buffers.references.push(part.to_owned()));
+                        }
+                    }
+                    HDR_NAME_RECV_SPF => {
+                        buffers.spf = if value.to_lowercase().starts_with("pass") {
+                            Some(true)
+                        } else if value.to_lowercase().starts_with("none") {
+                            Some(false)
+                        } else {
+                            None
+                        }
+                    }
+                    HDR_NAME_X_SPAM_STATUS => {
+                        buffers.spam =
+                            if let Some(captures) = spam_score_regex.captures(value.as_str()) {
+                                if let Ok(score) = captures[2].parse() {
+                                    if let Ok(required) = captures[3].parse() {
+                                        (
+                                            Some(captures[1].eq_ignore_ascii_case("yes")),
+                                            Some(score),
+                                            Some(required),
+                                        )
+                                    } else {
+                                        warn!(
                                     "process_record: failed to parse required capture [{}] to f32",
                                     &captures[3]
                                 );
-                                (
-                                    Some(captures[1].eq_ignore_ascii_case("yes")),
-                                    Some(score),
-                                    None,
-                                )
+                                        (
+                                            Some(captures[1].eq_ignore_ascii_case("yes")),
+                                            Some(score),
+                                            None,
+                                        )
+                                    }
+                                } else {
+                                    warn!(
+                                        "process_record: failed to parse score capture [{}] to f32",
+                                        &captures[2]
+                                    );
+                                    (Some(captures[1].eq_ignore_ascii_case("yes")), None, None)
+                                }
+                            } else {
+                                (None, None, None)
                             }
-                        } else {
-                            warn!(
-                                "process_record: failed to parse score capture [{}] to f32",
-                                &captures[2]
-                            );
-                            (Some(captures[1].eq_ignore_ascii_case("yes")), None, None)
-                        }
-                    } else {
-                        (None, None, None)
                     }
-                }
-                HDR_NAME_TO => {
-                    email_parser.parse(value.as_str(), &mut buffers.to);
-                    received |= RECV_TO;
-                }
-                HDR_NAME_FROM => {
-                    email_parser.parse(value.as_str(), &mut buffers.from);
-                    received |= RECV_FROM;
-                }
-                HDR_NAME_CC => {
-                    email_parser.parse(value.as_str(), &mut buffers.cc);
-                    received |= RECV_CC;
-                }
-                HDR_NAME_BCC => {
-                    email_parser.parse(value.as_str(), &mut buffers.bcc);
-                    received |= RECV_BCC;
-                }
-                HDR_NAME_SUBJ => {
-                    buffers.subj = value.to_owned();
-                    received |= RECV_SUBJ;
-                }
+                    HDR_NAME_TO => {
+                        email_parser.parse(value.as_str(), &mut buffers.to);
+                        received |= RECV_TO;
+                    }
+                    HDR_NAME_FROM => {
+                        email_parser.parse(value.as_str(), &mut buffers.from);
+                        received |= RECV_FROM;
+                    }
+                    HDR_NAME_CC => {
+                        email_parser.parse(value.as_str(), &mut buffers.cc);
+                        received |= RECV_CC;
+                    }
+                    HDR_NAME_BCC => {
+                        email_parser.parse(value.as_str(), &mut buffers.bcc);
+                        received |= RECV_BCC;
+                    }
+                    HDR_NAME_SUBJ => {
+                        buffers.subj = value.to_owned();
+                        received |= RECV_SUBJ;
+                    }
 
-                _ => (),
-            };
-            /* if (received & RECV_HEADERS_ALL) == RECV_HEADERS_ALL {
-                break;
-            }*/
+                    _ => (),
+                };
+                /* if (received & RECV_HEADERS_ALL) == RECV_HEADERS_ALL {
+                    break;
+                }*/
+            }
+
+            if PROFILE {
+                debug!(
+                    "process_record: parsing headers took {} ms",
+                    (chrono::Local::now() - ts_start.unwrap()).num_milliseconds()
+                );
+            }
         }
+
         if (received & RECV_FROM) != RECV_FROM {
             let mut header_names = String::new();
             buffers.hdr.iter().for_each(|(name, _)| {
@@ -256,8 +290,15 @@ pub fn process_record(
             None
         };
 
-        // insert record
-        db_conn.exec_drop(ST_REC_INSERT,params! {
+        {
+            let ts_start = if PROFILE {
+                Some(chrono::Local::now())
+            } else {
+                None
+            };
+
+            // insert record
+            db_conn.exec_drop(ST_REC_INSERT, params! {
             "user_id"=>user_id,
             "uid"=>buffers.uid.as_str(),
             "guid"=>buffers.guid.as_str(),
@@ -276,12 +317,25 @@ pub fn process_record(
             "spam_req"=>buffers.spam.2,
             "msg_id"=>buffers.msg_id.as_ref(),
         }).with_context(|| "failed to insert record".to_owned())
-            .with_context(|| "failed to insert record".to_owned())?;
+                .with_context(|| "failed to insert record".to_owned())?;
+
+            if PROFILE {
+                debug!(
+                    "process_record: insert record took {} ms",
+                    (chrono::Local::now() - ts_start.unwrap()).num_milliseconds()
+                );
+            }
+        }
 
         let record_id = db_conn.last_insert_id();
 
         if !buffers.flags.is_empty() {
-            debug!("process_record: inserting flags: {:?}", buffers.flags);
+            let ts_start = if PROFILE {
+                Some(chrono::Local::now())
+            } else {
+                None
+            };
+
             db_conn
                 .exec_batch(
                     ST_IF_INSERT,
@@ -291,11 +345,23 @@ pub fn process_record(
                         .map(|flag| params! {"record_id" => record_id, "name" => flag.as_str()}),
                 )
                 .with_context(|| "failed to insert imap_flags".to_owned())?;
-            debug!("process_record: flags inserted");
+
+            if PROFILE {
+                debug!(
+                    "process_record: inserting flags took {} ms",
+                    (chrono::Local::now() - ts_start.unwrap()).num_milliseconds()
+                );
+            }
         }
 
         if !buffers.hdr.is_empty() {
             // insert headers
+            let ts_start = if PROFILE {
+                Some(chrono::Local::now())
+            } else {
+                None
+            };
+
             db_conn
                 .exec_batch(
                     ST_HDR_INSERT,
@@ -321,10 +387,24 @@ pub fn process_record(
                         }),
                 )
                 .with_context(|| "process_record: failed to insert headers".to_owned())?;
+
+            if PROFILE {
+                debug!(
+                    "process_record: insert headers took {} ms",
+                    (chrono::Local::now() - ts_start.unwrap()).num_milliseconds()
+                );
+            }
         }
 
         if !buffers.to.is_empty() {
             // insert To email addresses & names if valid
+
+            let ts_start = if PROFILE {
+                Some(chrono::Local::now())
+            } else {
+                None
+            };
+
             for (seq, (email, name, valid)) in buffers.to.iter().enumerate() {
                 if *valid {
                     let email_id = email_db.add_email(
@@ -347,9 +427,21 @@ pub fn process_record(
                         .with_context(|| "process_record: failed to insert mail_to".to_owned())?;
                 }
             }
+            if PROFILE {
+                debug!(
+                    "process_record: insert mail_to took {} ms",
+                    (chrono::Local::now() - ts_start.unwrap()).num_milliseconds()
+                );
+            }
         }
         if !buffers.cc.is_empty() {
             // insert Cc email addresses & names if valid
+            let ts_start = if PROFILE {
+                Some(chrono::Local::now())
+            } else {
+                None
+            };
+
             for (seq, (email, name, valid)) in buffers.cc.iter().enumerate() {
                 if *valid {
                     let email_id = email_db.add_email(
@@ -371,10 +463,24 @@ pub fn process_record(
                         )
                         .with_context(|| "process_record: failed to insert mail_cc".to_owned())?;
                 }
+
+                if PROFILE {
+                    debug!(
+                        "process_record: insert mail_cc took {} ms",
+                        (chrono::Local::now() - ts_start.unwrap()).num_milliseconds()
+                    );
+                }
             }
         }
         if !buffers.bcc.is_empty() {
             // insert Bcc email addresses & names if valid
+
+            let ts_start = if PROFILE {
+                Some(chrono::Local::now())
+            } else {
+                None
+            };
+
             for (seq, (email, name, valid)) in buffers.bcc.iter().enumerate() {
                 if *valid {
                     let email_id = email_db.add_email(
@@ -397,10 +503,23 @@ pub fn process_record(
                         .with_context(|| "process_record: failed to insert mail_bcc".to_owned())?;
                 }
             }
+            if PROFILE {
+                debug!(
+                    "process_record: insert mail_bcc took {} ms",
+                    (chrono::Local::now() - ts_start.unwrap()).num_milliseconds()
+                );
+            }
         }
 
         if !buffers.references.is_empty() {
             // insert Referenced message ids
+
+            let ts_start = if PROFILE {
+                Some(chrono::Local::now())
+            } else {
+                None
+            };
+
             for (seq, msg_id) in buffers.references.iter().enumerate() {
                 db_conn
                     .exec_drop(
@@ -408,6 +527,12 @@ pub fn process_record(
                         params! { "record_id"=> record_id, "seq"=>seq,  "msg_id"=> msg_id },
                     )
                     .with_context(|| "process_record: failed to insert referenced".to_owned())?;
+            }
+            if PROFILE {
+                debug!(
+                    "process_record: insert references took {} ms",
+                    (chrono::Local::now() - ts_start.unwrap()).num_milliseconds()
+                );
             }
         }
 
