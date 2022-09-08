@@ -144,11 +144,19 @@ pub fn process_record(
                         }
                     }
                     HDR_NAME_RECV_SPF => {
+                        debug!(
+                            "process_record: found header {}, value: {}",
+                            HDR_NAME_RECV_SPF,
+                            value.as_str()
+                        );
                         buffers.spf = if value.to_lowercase().starts_with("pass") {
+                            debug!("process_record: spf set to true");
                             Some(true)
                         } else if value.to_lowercase().starts_with("none") {
+                            debug!("process_record: spf set to false");
                             Some(false)
                         } else {
+                            debug!("process_record: spf set to None");
                             None
                         }
                     }
