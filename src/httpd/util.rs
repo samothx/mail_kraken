@@ -89,7 +89,10 @@ pub fn format_percent(fract: u64, of: u64) -> String {
             (fract, of)
         }
     };
-    format!("{:.2}", f64::from(fract as u32) / f64::from(of as u32))
+    format!(
+        "{:.2}",
+        f64::from(fract as u32) / f64::from(of as u32) * 100.0
+    )
 }
 
 #[cfg(test)]
