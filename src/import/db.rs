@@ -144,19 +144,11 @@ pub fn process_record(
                         }
                     }
                     HDR_NAME_RECV_SPF => {
-                        debug!(
-                            "process_record: found header {}, value: {}",
-                            HDR_NAME_RECV_SPF,
-                            value.as_str()
-                        );
                         buffers.spf = if value.to_lowercase().starts_with("pass") {
-                            debug!("process_record: spf set to true");
                             Some(true)
                         } else if value.to_lowercase().starts_with("none") {
-                            debug!("process_record: spf set to false");
                             Some(false)
                         } else {
-                            debug!("process_record: spf set to None");
                             None
                         }
                     }
@@ -290,7 +282,7 @@ pub fn process_record(
                     } else {
                         EmailType::InboundFrom((
                             buffers.flags.iter().any(|name| name.as_str() == r#"\Seen"#),
-                            false,
+                            buffers.spam.0.unwrap_or(false),
                         ))
                     },
                 )?)
@@ -387,6 +379,10 @@ pub fn process_record(
                                     | HDR_NAME_SUBJ
                                     | HDR_NAME_CC
                                     | HDR_NAME_BCC
+                                    | HDR_NAME_REFERENCED
+                                    | HDR_NAME_RECV_SPF
+                                    | HDR_NAME_MSG_ID
+                                    | HDR_NAME_FROM
                             )
                         })
                         .enumerate()

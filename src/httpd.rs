@@ -22,6 +22,7 @@ mod error;
 mod login;
 mod state_data;
 mod user;
+mod util;
 
 use crate::httpd::admin::{admin_dash, admin_db_url, admin_passwd};
 use crate::httpd::login::{admin_login_form, login_form, login_handler};

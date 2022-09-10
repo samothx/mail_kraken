@@ -4,7 +4,14 @@
 <div class="outer">
   <h2>Mail Kraken - Dashboard</h2>
   <div class="dash_cntr">
-
+      <table>
+        <tr>
+          <td>Messages</td><td>Count:{{msg_count}}</td><td>Size: {{msg_data}}</td><td>% Seen: {{fract_seen}}</td>
+        </tr>
+        <tr>
+          <td>Inbound Email Addresses</td><td colspan="2">Count: {{email_count}}</td><td>Receivers: {{email_recvr}}</td>
+        </tr>
+      </table>
   </div>
 </div>
 {% include "footer.html" %}
